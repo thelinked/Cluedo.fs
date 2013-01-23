@@ -48,14 +48,17 @@ module Cluedo =
         | Player of Player
         | Weapon of Weapon
         | Room of Room
-        
+    
+    type Hand = Card list
+    
     type Murder = {
         murderer : Player;
         weapon : Weapon;
         room : Room;
     }
 
-    type CardState(murder : Murder, player_hands : List<List<Card>>) = 
+    
+    type CardState (murder : Murder, player_hands : Hand list) = 
         member this.murder = murder
         member this.playerHands = player_hands
         member this.numPlayers = List.length this.playerHands
@@ -69,7 +72,7 @@ module Cluedo =
             |> List.sortBy fst
             |> List.map snd
       
-    let deal list n = 
+    let deal list n : Hand list = 
         list 
             |> List.mapi (fun i elem -> i % n, elem)
             |> List.sortBy fst
@@ -77,9 +80,9 @@ module Cluedo =
             |> List.map (fun l -> List.map snd l)
 
     //Dice functions
-    let createDice = 
+    let fairDice n = 
         let rand = new System.Random()
-        fun () -> rand.Next()%6
+        fun () -> rand.Next()%n
 
 
     //Game control functions
@@ -95,3 +98,29 @@ module Cluedo =
 
         let hands = deal deck n
         CardState(murder, hands)
+
+        
+    //Query functions
+    let queryOrder player max = 
+        [0..max-1]
+        |> List.map (fun s -> (s+player)%max)
+        |> List.tail
+
+    let queryHand query hand = 
+        let hasAny card = 
+            match card with
+            | Player(card) when card = query.murderer -> true
+            | Weapon(card) when card = query.weapon -> true
+            | Room(card) when card = query.room -> true
+            | _ -> false
+        List.filter hasAny hand
+
+    let suggest (card_state:CardState) suggested playerOrder = 
+        let rec suggestHelper order = 
+            match order with
+            | [] -> None
+            | h::t -> match queryHand suggested (card_state.player h) with
+                        | [] -> suggestHelper t
+                        | x -> Some(h,x)
+
+        suggestHelper playerOrder
