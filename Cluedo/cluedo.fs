@@ -58,12 +58,17 @@ module Cluedo =
     }
 
     
-    type CardState (murder : Murder, player_hands : Hand list) = 
+    type CardState (murder: Murder, player_hands: Hand list) = 
         member this.murder = murder
         member this.playerHands = player_hands
         member this.numPlayers = List.length this.playerHands
         member this.player = function | n when n < this.numPlayers -> List.nth this.playerHands n | _ -> []
 
+    let printPlayer (card_state: CardState) n =
+        printfn "Player %A's hand" n
+        (card_state.player n)
+        |> List.iter (fun (c: Card) -> printfn "\t'%A'" c) 
+        
     //Deck functions
     let shuffle cards = 
         let rand = new System.Random()
@@ -72,7 +77,7 @@ module Cluedo =
             |> List.sortBy fst
             |> List.map snd
       
-    let deal list n : Hand list = 
+    let deal list n: Hand list = 
         list 
             |> List.mapi (fun i elem -> i % n, elem)
             |> List.sortBy fst
@@ -115,7 +120,7 @@ module Cluedo =
             | _ -> false
         List.filter hasAny hand
 
-    let suggest (card_state:CardState) suggested playerOrder = 
+    let suggest (card_state: CardState) playerNumber suggested = 
         let rec suggestHelper order = 
             match order with
             | [] -> None
@@ -123,4 +128,5 @@ module Cluedo =
                         | [] -> suggestHelper t
                         | x -> Some(h,x)
 
+        let playerOrder = queryOrder playerNumber card_state.numPlayers
         suggestHelper playerOrder
