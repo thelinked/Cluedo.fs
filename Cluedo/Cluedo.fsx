@@ -1,16 +1,16 @@
-﻿#r @".\bin\Debug\Cluedo.exe"
-open Cluedo
+﻿#load "cluedo.fs"
+open Cluedo.Model
 
-let game = Cluedo.createGame 3
-let query = { Cluedo.murderer = Cluedo.Miss_Scarlett; Cluedo.weapon = Cluedo.Candlestick; Cluedo.room = Cluedo.Kitchen }
-let p0Suggests = Cluedo.suggest game 0
-let p1Suggests = Cluedo.suggest game 1
-let p2Suggests = Cluedo.suggest game 2
+let game = createGame 3
+let query = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
+let p0Suggests = suggest game 0
+let p1Suggests = suggest game 1
+let p2Suggests = suggest game 2
 
 let playGame card_state = 
     let turnsleft = 20
     let player = 0
-    let rec loop (card_state: Cluedo.CardState) p turnsleft = 
+    let rec loop (card_state: CardState) p turnsleft = 
         printfn "Its players %A turn with %A turns left" player turnsleft
         match (player,turnsleft) with 
         | (_,0) -> 0
