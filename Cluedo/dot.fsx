@@ -12,3 +12,18 @@ test ID "<lol>"
 
 
 
+test undirected_edge_smt "a -- b;"
+test undirected_edge_smt "4 -- b -- c;"
+test (many undirected_edge_smt) @"a -- b -- c -- d;
+        4 -- b -- c;"
+
+
+test directed_graph  @"digraph graphname {
+     a -> b -> c;
+     b -> d;
+ }"
+
+test undirected_graph  @"graph graphname {
+     a -- b -- c;
+     b -- d;
+ }"
