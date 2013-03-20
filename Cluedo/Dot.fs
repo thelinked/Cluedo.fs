@@ -1,6 +1,20 @@
 ﻿module Dot
 open FParsec
 
+type GraphType = 
+    | Digraph 
+    | Graph
+    static member getType = function 
+        | "graph" -> Graph
+        | "digraph" -> Digraph
+        | _ -> failwith "Expected \"graph\" or \"digraph\""
+
+type Graph = Type of GraphType
+           | Name of string
+           | EdgeSmt of string list
+           | SubGraph of (Graph * Graph * Graph list)
+
+
 let str = pstring
 let ws = spaces
 let ws_with_semi = (ws .>> str ";" .>> ws) <|> ws
@@ -14,10 +28,8 @@ let test p str =
     | Success(result, _, _)   -> printfn "Success: %A" result
     | Failure(errorMsg, _, _) -> printfn "Failure: %s" errorMsg
 
-
-
 //ID's
-let identifier: Parser<_> = 
+let identifier = 
     let isIDFirstChar c = isLetter c || c = '_'
     let isIDChar c = isLetter c || isDigit c || c = '_'
 
@@ -29,17 +41,16 @@ let numeral =
 
     negative <|> positve
 
-let string_literal: Parser<_> = 
+let string_literal = 
     let normal = many1Satisfy (fun c -> c <> '\\' && c <> '"')
     let escaped = str "\\" >>. (anyOf "\\\"" |>> (fun c -> string c))
 
-    between (str "\"") (str "\"") 
-            (manyStrings (normal <|> escaped))
+    between (str "\"") (str "\"") (manyStrings (normal <|> escaped))
 
 let html_string: Parser<_> = 
     pipe3 (str "<") (manySatisfy (fun c -> c <> '>')) (str ">") (fun a s b -> a+s+b)
  
-let ID = (numeral <|> string_literal <|> html_string <|> identifier) .>> ws
+let ID: Parser<_> = (numeral <|> string_literal <|> html_string <|> identifier) .>> ws 
 
 
 
@@ -47,7 +58,7 @@ let ID = (numeral <|> string_literal <|> html_string <|> identifier) .>> ws
 let edge_statement op =
     let edge_rhs = many (str_ws op >>. ID .>> ws)
 
-    pipe2 ID edge_rhs (fun x y -> x::y) .>> ws_with_semi
+    pipe2 ID edge_rhs (fun x y -> x::y) .>> ws_with_semi |>> EdgeSmt
 
 let undirected_edge_smt = edge_statement "--"
 let directed_edge_smt = edge_statement "->"
@@ -56,8 +67,8 @@ let directed_edge_smt = edge_statement "->"
 
 //Graph
 let graph graph_type edge_type = 
-    let graph_type = (str graph_type) .>> ws
-    let graph_name = ID .>> ws .>> str "{" .>> ws
+    let graph_type = (str graph_type) .>> ws |>> GraphType.getType |>> Type
+    let graph_name = ID .>> ws .>> str "{" .>> ws |>> Name
     let edges = many (edge_type)
 
     tuple3 graph_type graph_name edges .>> str "}"

@@ -44,8 +44,8 @@
     <None Include="Cluedo.fsx" />
     <Compile Include="Dot.fs" />
     <None Include="dot.fsx" />
-    <None Include="packages.config" />
     <None Include="app.config" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FParsec">
