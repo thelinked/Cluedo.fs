@@ -5,25 +5,31 @@
 open FParsec
 open Dot
 
+let test p str =
+    match run p str with
+    | Success(result, _, _)   -> printfn "Success: %A" result
+    | Failure(errorMsg, _, _) -> printfn "Failure: %s" errorMsg
+
+
 test ID "_lol"
 test ID @"""jsdhfki\""sdjbgf"""
 test ID "-45"
 test ID "<lol>"
 
 
-
+let undirected_edge_smt = edgeStatement "--"
 test undirected_edge_smt "a -- b;"
 test undirected_edge_smt "4 -- b -- c;"
 test (many undirected_edge_smt) @"a -- b -- c -- d;
         4 -- b -- c;"
 
 
-test directed_graph  @"digraph graphname {
+test dot  @"digraph graphname {
      a -> b -> c;
      b -> d;
  }"
 
-test undirected_graph  @"graph graphname {
+parse  @"graph graphname {
      a -- b -- c;
      b -- d;
  }"
