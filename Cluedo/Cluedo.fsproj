@@ -40,10 +40,10 @@
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <ItemGroup>
-    <Compile Include="cluedo.fs" />
-    <None Include="Cluedo.fsx" />
     <Compile Include="Dot.fs" />
+    <Compile Include="cluedo.fs" />
     <None Include="dot.fsx" />
+    <None Include="Cluedo.fsx" />
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>

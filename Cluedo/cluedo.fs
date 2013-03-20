@@ -57,7 +57,7 @@ module Model =
     }
 
     
-    type CardState (murder: Murder, player_hands: Hand list) = 
+    type Cards (murder: Murder, player_hands: Hand list) = 
         member this.murder = murder
         member this.playerHands = player_hands
         member this.numPlayers = List.length this.playerHands
@@ -65,9 +65,9 @@ module Model =
             | n when n < this.numPlayers -> 
                 List.nth this.playerHands n | _ -> []
 
-    let printPlayer (card_state: CardState) n =
+    let printPlayer (cards: Cards) n =
         printfn "Player %A's hand" n
-        (card_state.player n)
+        (cards.player n)
         |> List.iter (fun (c: Card) -> printfn "\t'%A'" c) 
         
     //Deck functions
@@ -102,8 +102,7 @@ module Model =
                              for w in List.tail weapons do yield Weapon(w)
                              for r in List.tail rooms do yield Room(r) ]
 
-        let hands = deal deck n
-        CardState(murder, hands)
+        Cards(murder, deal deck n)
 
         
     //Query functions
@@ -121,15 +120,15 @@ module Model =
             | _ -> false
         List.filter hasAny hand
 
-    let suggest (card_state: CardState) playerNumber suggested = 
+    let suggest (cards: Cards) playerNumber suggested = 
         let rec suggestHelper order = 
             match order with
             | [] -> None
-            | h::t -> match queryHand suggested (card_state.player h) with
+            | h::t -> match queryHand suggested (cards.player h) with
                         | [] -> suggestHelper t
                         | x -> Some(h,x)
 
-        let playerOrder = queryOrder playerNumber card_state.numPlayers
+        let playerOrder = queryOrder playerNumber cards.numPlayers
         suggestHelper playerOrder
 
 module Graph =
