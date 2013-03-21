@@ -3,7 +3,7 @@
 #load "Dot.fs"
 
 open FParsec
-open Dot
+open Cluedo.Dot
 
 let test p str =
     match run p str with
