@@ -62,8 +62,8 @@ module Model =
         member this.playerHands = player_hands
         member this.numPlayers = List.length this.playerHands
         member this.player = function 
-            | n when n < this.numPlayers -> 
-                List.nth this.playerHands n | _ -> []
+            | n when n < this.numPlayers -> List.nth this.playerHands n 
+            | _ -> []
 
     let printPlayer (cards: Cards) n =
         printfn "Player %A's hand" n
@@ -104,7 +104,6 @@ module Model =
 
         Cards(murder, deal deck n)
 
-        
     //Query functions
     let queryOrder player max = 
         [0..max-1]
@@ -131,25 +130,3 @@ module Model =
         let playerOrder = queryOrder playerNumber cards.numPlayers
         suggestHelper playerOrder
 
-module Graph =
-    type 'a Edge = 'a * 'a
-    type 'a Graph = 'a list * 'a Edge list
-
-    let g: char Graph = 
-            (['b';'c';'d';'f';'g';'h';'k'], 
-                [('b','c');
-                ('b','f');
-                ('c','f');
-                ('f','k');
-                ('g','h')])  
-
-    type 'a Node = 'a * 'a list
-    type 'a AdjacencyGraph = 'a Node list
-
-    let ga: char AdjacencyGraph = 
-        [('b',['c'; 'f']); 
-        ('c',['b'; 'f']); 
-        ('d',[]); 
-        ('f',['b'; 'c'; 'k']); 
-        ('g',['h']); 
-        ('h',['g']); ('k',['f'])]

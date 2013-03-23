@@ -1,8 +1,5 @@
 ﻿#load "cluedo.fs"
-#load "dot.fs"
 open Cluedo.Model
-open Cluedo.Graph
-open Cluedo.Dot
 
 let game = createGame 3
 let query = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
