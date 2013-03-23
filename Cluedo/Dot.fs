@@ -71,3 +71,8 @@ module Dot =
         runParserOnStream dot () "" stream System.Text.Encoding.UTF8
 
     let parse = run dot
+
+    let getResult p = 
+        match p with
+        | Success(result, _, _)   -> result
+        | Failure(errorMsg, _, _) -> failwith errorMsg
