@@ -24,9 +24,7 @@ module Graph =
 
     let rec collapseListListToSet listlist =
         let union l r =  List.append l r |> Seq.distinct |> List.ofSeq
-        match listlist with 
-        | hd::tl -> union hd (collapseListListToSet tl)
-        | [] -> []
+        ([],listlist) ||> List.fold (fun nm acc -> union nm acc) 
 
     let createGraph dotTree = 
         let edgeSmts = getEdgeSmts dotTree
