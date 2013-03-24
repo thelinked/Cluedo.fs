@@ -76,3 +76,9 @@ module Dot =
         match p with
         | Success(result, _, _)   -> result
         | Failure(errorMsg, _, _) -> failwith errorMsg
+
+
+    //Helper functions to be used with parser results
+    let getType = function | (t,_,_) -> t
+    let getName = function | (_,n,_) -> n
+    let getEdgeSmts = function | (_,_,e) -> e

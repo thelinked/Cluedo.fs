@@ -27,9 +27,14 @@ let result = getResult (parse  @"graph graphname {
      b -- z;
      b -- e;
      f -- e;
+     f -- aaa;
+     aaa-- aab;
+     aab -- aac;
  }")
 
 
 let graph: string Graph  = createGraph result
 
 let adjGraph = toAdjancencyGraph graph
+
+let p = paths "a" "aac" adjGraph

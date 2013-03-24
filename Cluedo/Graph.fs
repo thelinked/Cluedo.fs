@@ -9,11 +9,6 @@ module Graph =
     type 'a Node = 'a * 'a list
     type 'a AdjacencyGraph = 'a Node list
 
-    //Helper functions to be used with parser results
-    let getType = function | (t,_,_) -> t
-    let getName = function | (_,n,_) -> n
-    let getEdgeSmts = function | (_,_,e) -> e
-
     //['b';'c';'d';] -> [('b','c');('c','d');]
     let rec pairs list = 
         let rec pairsHelper acc list = 
@@ -30,7 +25,6 @@ module Graph =
         let edgeSmts = getEdgeSmts dotTree
         let nodes = collapseListListToSet edgeSmts
         let edges = (List.map pairs edgeSmts) |> List.fold List.append [] 
-
         nodes,edges
 
     let toAdjancencyGraph ((ns, es): 'a Graph) : 'a AdjacencyGraph = 
@@ -50,3 +44,16 @@ module Graph =
                     |> Seq.sort
                     |> Seq.toList
         nodes,edges
+
+    let paths start finish (g : 'a AdjacencyGraph) = 
+        let map = g |> Map.ofList
+        let rec loop route visited = [
+            let current = List.head route
+            if current = finish then
+                yield List.rev route
+            else
+                for next in map.[current] do
+                    if visited |> Set.contains next |> not then
+                        yield! loop (next::route) (Set.add next visited) 
+        ]
+        loop [start] <| Set.singleton start
