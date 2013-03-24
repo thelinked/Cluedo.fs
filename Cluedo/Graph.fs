@@ -6,24 +6,8 @@ module Graph =
     type 'a Edge = 'a * 'a
     type 'a Graph = 'a list * 'a Edge list
 
-    let g: char Graph = 
-            (['b';'c';'d';'f';'g';'h';'k'], 
-             [('b','c');
-              ('b','f');
-              ('c','f');
-              ('f','k');
-              ('g','h')])  
-
     type 'a Node = 'a * 'a list
     type 'a AdjacencyGraph = 'a Node list
-
-    let ga: char AdjacencyGraph = 
-        [('b',['c'; 'f']); 
-         ('c',['b'; 'f']); 
-         ('d',[]); 
-         ('f',['b'; 'c'; 'k']); 
-         ('g',['h']); 
-         ('h',['g']); ('k',['f'])]
 
     //Helper functions to be used with parser results
     let getType = function | (t,_,_) -> t
@@ -38,25 +22,33 @@ module Graph =
             | _ -> acc
         pairsHelper [] list
 
-    let rec collapseListToSet list =
+    let rec collapseListListToSet listlist =
         let union l r =  List.append l r |> Seq.distinct |> List.ofSeq
-        
-        match list with 
-        | hd::tl -> union hd (collapseListToSet tl)
+        match listlist with 
+        | hd::tl -> union hd (collapseListListToSet tl)
         | [] -> []
-
-    let generateEdgesForUndirectedGraph gtype edges = 
-        let reverseEdges = List.map (fun (x,y) -> (y,x))
-        
-        match gtype with
-        | Graph -> List.append (reverseEdges edges) edges
-        | Digraph -> edges
 
     let createGraph dotTree = 
         let edgeSmts = getEdgeSmts dotTree
-        let gtype = getType dotTree
-        let set = collapseListToSet edgeSmts
+        let nodes = collapseListListToSet edgeSmts
+        let edges = (List.map pairs edgeSmts) |> List.fold List.append [] 
 
-        let edges = List.fold List.append [] (List.map pairs edgeSmts) 
-                    |> generateEdgesForUndirectedGraph gtype
-        set,edges
+        nodes,edges
+
+    let toAdjancencyGraph ((ns, es): 'a Graph) : 'a AdjacencyGraph = 
+        let nodeMap = ns |> List.map (fun n -> n,[]) |> Map.ofList
+        (nodeMap,es)
+        ||> List.fold (fun map (a,b) -> map 
+                                        |> Map.add a (b::map.[a]) 
+                                        |> Map.add b (a::map.[b]))
+        |> Map.toList
+
+    let toGraph (ns: 'a AdjacencyGraph): 'a Graph = 
+        let sort ((a,b) as e) = if a > b then (b,a) else e
+        let nodes = ns |> List.map fst
+        let edges = (Set.empty, ns)
+                    ||> List.fold(fun set (a,ns) -> (set,ns) ||> List.fold(fun s b -> s |> Set.add (sort (a,b))))
+                    |> Set.toSeq
+                    |> Seq.sort
+                    |> Seq.toList
+        nodes,edges
