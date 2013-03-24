@@ -42,8 +42,10 @@
   <ItemGroup>
     <Compile Include="Dot.fs" />
     <Compile Include="cluedo.fs" />
+    <Compile Include="Graph.fs" />
     <None Include="dot.fsx" />
     <None Include="Cluedo.fsx" />
+    <None Include="Graph.fsx" />
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
