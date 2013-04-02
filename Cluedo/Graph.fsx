@@ -1,5 +1,6 @@
 ﻿#r @"..\packages\FParsec.0.9.2.0\lib\net40\FParsecCS.dll"
 #r @"..\packages\FParsec.0.9.2.0\lib\net40\FParsec.dll"
+#r @"..\packages\FSharpx.Core.1.8.3.0\lib\40\FSharpx.Core.dll"
 #load "dot.fs"
 #load "graph.fs"
 
