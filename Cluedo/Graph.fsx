@@ -37,4 +37,4 @@ let graph: string Graph  = createGraph result
 
 let adjGraph = toAdjancencyGraph graph
 
-let p = paths "a" "aac" adjGraph
+let p = depthFirst "a" "aac" adjGraph

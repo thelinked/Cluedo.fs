@@ -1,5 +1,6 @@
 ﻿namespace Cluedo
 module Graph =
+    open FSharpx.Collections
     open FParsec
     open Cluedo.Dot
 
@@ -10,7 +11,7 @@ module Graph =
     type 'a AdjacencyGraph = 'a Node list
 
     //['b';'c';'d';] -> [('b','c');('c','d');]
-    let rec pairs list = 
+    let pairs list = 
         let rec pairsHelper acc list = 
             match list with
             | x::y::tail -> pairsHelper ((x,y)::acc) (y::tail)
@@ -18,8 +19,9 @@ module Graph =
         pairsHelper [] list
 
     let rec collapseListListToSet listlist =
-        let union l r =  List.append l r |> Seq.distinct |> List.ofSeq
-        ([],listlist) ||> List.fold (fun nm acc -> union nm acc) 
+        listlist 
+        |> List.fold (fun nm acc -> List.append nm acc) []
+        |> Seq.distinct |> List.ofSeq
 
     let createGraph dotTree = 
         let edgeSmts = getEdgeSmts dotTree
@@ -39,21 +41,24 @@ module Graph =
         let sort ((a,b) as e) = if a > b then (b,a) else e
         let nodes = ns |> List.map fst
         let edges = (Set.empty, ns)
-                    ||> List.fold(fun set (a,ns) -> (set,ns) ||> List.fold(fun s b -> s |> Set.add (sort (a,b))))
-                    |> Set.toSeq
-                    |> Seq.sort
-                    |> Seq.toList
+                    ||> List.fold (fun set (a,ns) -> (set,ns) ||> List.fold(fun s b -> s |> Set.add (sort (a,b))))
+                    |> Set.toSeq |> Seq.sort |> Seq.toList
         nodes,edges
 
-    let paths start finish (g : 'a AdjacencyGraph) = 
-        let map = g |> Map.ofList
-        let rec loop route visited = [
-            let current = List.head route
-            if current = finish then
-                yield List.rev route
-            else
-                for next in map.[current] do
-                    if visited |> Set.contains next |> not then
-                        yield! loop (next::route) (Set.add next visited) 
-        ]
-        loop [start] <| Set.singleton start
+    let depthFirst start finish (g: 'a AdjacencyGraph) = 
+        let lookup = g |> Map.ofList
+
+        let rec loop (queue:Queue<string>) route visited = 
+            if not queue.IsEmpty then
+                if queue.Head = finish then 
+                    List.rev (queue.Head::route)
+                else
+                    let adj = lookup.[queue.Head] |> List.filter (fun n ->  not (Set.contains n visited))
+                    let newQueue = (queue.Tail,adj) ||> List.fold (fun acc next -> Queue.conj next acc)
+                    let newRoute = queue.Head::route
+                    let newVisited = (Set.add queue.Head visited)
+
+                    loop newQueue newRoute newVisited
+            else failwith "Can not reach destination"
+
+        loop (Queue.conj start Queue.empty) [] (Set.singleton start)
