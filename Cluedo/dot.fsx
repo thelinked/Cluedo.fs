@@ -7,7 +7,7 @@ open Cluedo.Dot
 
 let test p str =
     match run p str with
-    | Success(result, _, _)   -> printfn "Success: %A" result
+    | Success(result, _, position)   -> printfn "Success: %A - %A" result position
     | Failure(errorMsg, _, _) -> printfn "Failure: %s" errorMsg
 
 
@@ -23,13 +23,14 @@ test undirected_edge_smt "4 -- b -- c;"
 test (many undirected_edge_smt) @"a -- b -- c -- d;
         4 -- b -- c;"
 
-
 test dot  @"digraph graphname {
-     a -> b -> c;
-     b -> d;
+     a -> b -> c
+     b -> d
  }"
 
 parse  @"graph graphname {
      a -- b -- c;
      b -- d;
  }"
+
+

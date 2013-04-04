@@ -17,10 +17,15 @@ module Dot =
 
     //Helper functions
     let str = pstring
-    let ws = spaces
-    let ws_with_semi = (ws .>> str ";" .>> ws) <|> ws
-    let str_ws s = str s .>> ws 
-
+    let preProcesser = pchar '#' >>. skipRestOfLine true
+    let singlelineComment = skipString "//" .>> restOfLine true
+    let multilineComment =
+        between
+            (pstring "/*")
+            (pstring "*/")
+            (charsTillString "*/" false System.Int32.MaxValue)
+            |>> ignore
+    let ws = (preProcesser <|> singlelineComment <|> multilineComment <|> spaces1) |> skipMany
 
     //ID's
     let identifier = 
@@ -36,31 +41,35 @@ module Dot =
     let stringLiteral = 
         let normal = many1Satisfy (fun c -> c <> '\\' && c <> '"')
         let escaped = str "\\" >>. (anyOf "\\\"" |>> (fun c -> string c))
-        between (str "\"") (str "\"") (manyStrings (normal <|> escaped))
+        between 
+            (str "\"") 
+            (str "\"") 
+            (manyStrings (normal <|> escaped))
 
-    let htmlString: Parser<_> = 
+    let htmlString = 
         pipe3 (str "<") (manySatisfy (fun c -> c <> '>')) (str ">") (fun a s b -> a+s+b)
  
-    let ID: Parser<_> = (numeral <|> stringLiteral <|> htmlString <|> identifier) .>> ws
+    let ID: Parser<_> =  choice[numeral; stringLiteral; htmlString; identifier] .>> ws
 
 
     //Statements
     let edgeStatement op =
-        let edge_rhs = many (str_ws op >>. ID .>> ws)
-        pipe2 ID edge_rhs (fun x y -> x::y) .>> ws_with_semi
+        let edge_rhs = many (str op >>. ws >>. ID .>> ws)
+        pipe2 ID edge_rhs (fun x y -> x::y) .>> (str ";" |> optional) .>> ws
 
     let undirected = str "graph" |>> (fun x -> Graph) .>> ws
     let directed = str "digraph" |>> (fun x -> Digraph) .>> ws
 
 
     //Graph
-    let graph graph_type edge_type = 
-        let graph_name = ID .>> ws .>> str "{" .>> ws
-        let edges = many (edge_type)
-        tuple3 graph_type graph_name edges .>> str "}"
+    let graph graphType edgeType = 
+        let graphName = ID .>> ws .>> str "{" .>> ws
+        let edges = many (edgeType)
+        tuple3 graphType graphName edges .>> str "}"
 
     let dot:Parser<Graph> = 
-        graph directed (edgeStatement "->") <|> graph undirected (edgeStatement "--")
+        choice[ graph directed (edgeStatement "->"); 
+                graph undirected (edgeStatement "--")]
 
 
     //Parsers
