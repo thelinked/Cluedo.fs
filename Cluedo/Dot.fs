@@ -112,16 +112,6 @@ module Dot =
         | Success(result, _, _)   -> result
         | Failure(errorMsg, _, _) -> failwith errorMsg
 
-    let rec isUnionCase = function
-        | Lambda (_, expr) | Let (_, _, expr) -> isUnionCase expr
-        | NewTuple exprs -> 
-            let iucs = List.map isUnionCase exprs
-            fun value -> List.exists (fun iuc -> iuc value) iucs
-        | NewUnionCase (uci, _) ->
-            let utr = FSharpValue.PreComputeUnionTagReader uci.DeclaringType
-            box >> utr >> (=) uci.Tag
-        | _ -> failwith "Expression is no union case."
-
     //Helper functions to be used with parser results
     let getType = function | (t,_,_) -> t
     let getName = function | (_,n,_) -> n
