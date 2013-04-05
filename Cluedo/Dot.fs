@@ -78,7 +78,10 @@ module Dot =
 
     let edgeStatement op =
         let edge_rhs = (pstring op >>. ws >>. ID .>> ws) |> many
-        pipe2 ID edge_rhs (fun x y -> x::y) .>> (pstring ";" |> optional) .>> ws |>> EdgeStatement
+        pipe2 
+            ID edge_rhs 
+            (fun x y -> x::y) .>> (pstring ";" |> optional) .>> ws 
+        |>> EdgeStatement
 
     let undirected = pstring "graph" |>> (fun x -> Graph) .>> ws
     let directed = pstring "digraph" |>> (fun x -> Digraph) .>> ws
