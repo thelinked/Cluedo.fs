@@ -50,7 +50,7 @@ module Graph =
     let depthFirst start finish (g: 'a AdjacencyGraph) = 
         let lookup = g |> Map.ofList
 
-        let rec loop (queue:Queue<string>) route visited = 
+        let rec loop (queue:Queue<'a>) route visited = 
             if not queue.IsEmpty then
                 if queue.Head = finish then 
                     List.rev (queue.Head::route)
