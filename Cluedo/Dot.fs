@@ -10,7 +10,12 @@ module Dot =
     type Name = string
     type Attribute = Name * Name
     type Node = Name
+    type AttributeTarget = 
+        | AllGraph 
+        | AllNodes
+        | AllEdges
     type Statement = 
+        | AttributeStatement of AttributeTarget * Attribute list
         | NodeStatement of Node * Attribute list
         | EdgeStatement of Node list * (Attribute list option)
 
@@ -59,39 +64,54 @@ module Dot =
             (pstring ">") 
             (fun a s b -> a+s+b)
  
-    let ID: Parser<Name> = choice[numeral; stringLiteral; htmlString; identifier] .>> ws
+    let ID: Parser<Name> = 
+        choice[numeral; stringLiteral; htmlString; identifier] .>> ws
 
-    //Statements
+
+    //Attributes
     let attribs = 
         let attrib = pipe2 
                         (ID .>> pstring "=" .>> ws) 
                         (ID .>> ws) 
                         (fun key value -> key,value)
         let attrib_rhs = pstring "," >>. attrib |> many
-
         between
             (pstring "[")
             (pstring "]")
             (pipe2 attrib attrib_rhs (fun x y -> x::y))
+    
+    let attribGlobalTarget = 
+        let p name value = pstring name |>> (fun _ -> value)
+        choice[ p "graph" AllGraph; p "node" AllNodes; p "edge" AllEdges] .>> ws
+
+    //Statements
+    let attributeStatement = 
+        tuple2 attribGlobalTarget attribs |>> AttributeStatement
 
     let nodeStatement = 
-        tuple2 ID attribs .>> (pstring ";" |> optional) .>> ws |>> NodeStatement
+        tuple2 ID attribs |>> NodeStatement
 
     let edgeStatement op =
         let edge_rhs = (pstring op >>. ws >>. ID .>> ws) |> many
         pipe3 
             ID edge_rhs (opt attribs)
-            (fun x y z -> (x::y),z) .>> (pstring ";" |> optional) .>> ws 
+            (fun x y z -> (x::y),z)
         |>> EdgeStatement
 
     let undirected = pstring "graph" |>> (fun x -> Graph) .>> ws
     let directed = pstring "digraph" |>> (fun x -> Digraph) .>> ws
 
-
     //Graph
     let graph graphType edgeType = 
         let graphName = ID .>> ws .>> pstring "{" .>> ws
-        let smts = (attempt nodeStatement) <|> (attempt edgeType) |> many
+        let smts = 
+            choice [
+                (attempt attributeStatement); 
+                (attempt nodeStatement);
+                (attempt edgeType)
+            ]
+            .>> (pstring ";" |> optional) .>> ws
+            |> many
         tuple3 graphType graphName smts .>> pstring "}"
 
     let dot:Parser<DotAST> = 

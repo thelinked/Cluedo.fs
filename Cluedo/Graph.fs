@@ -15,7 +15,8 @@ module Graph =
         |> List.fold (fun acc nm -> 
             match nm with 
             | EdgeStatement(s,_) -> collectEdges s acc
-            | NodeStatement(s,_) -> collectNodes s acc) empty
+            | NodeStatement(s,_) -> collectNodes s acc
+            |> _ -> acc) empty
         |> Seq.distinct 
         |> List.ofSeq
 
@@ -52,7 +53,6 @@ module Graph =
 
     let depthFirst start finish (g: 'a AdjacencyGraph) = 
         let lookup = g |> Map.ofList
-
         let rec loop (queue:Queue<'a>) route visited = 
             if not queue.IsEmpty then
                 if queue.Head = finish then 
