@@ -9,20 +9,6 @@ module Graph =
 
     type 'a Node = 'a * 'a list
     type 'a AdjacencyGraph = 'a Node list
-
-    //['b';'c';'d';] -> [('b','c');('c','d');]
-    let pairs list = 
-        let rec pairsHelper acc list = 
-            match list with
-            | x::y::tail -> pairsHelper ((x,y)::acc) (y::tail)
-            | _ -> acc
-        pairsHelper [] list
-
-    let rec collapseListListToSet listlist =
-        listlist 
-        |> List.fold (fun nm acc -> List.append nm acc) []
-        |> Seq.distinct |> List.ofSeq    
-        
         
     let getNodes ((_,_,smts):DotAST) =
         smts
