@@ -21,13 +21,29 @@ module Graph =
     let rec collapseListListToSet listlist =
         listlist 
         |> List.fold (fun nm acc -> List.append nm acc) []
-        |> Seq.distinct |> List.ofSeq
+        |> Seq.distinct |> List.ofSeq    
+        
+        
+    let getNodes ((_,_,smts):DotAST) =
+        smts
+        |> List.fold (fun acc nm -> 
+            match nm with 
+            | EdgeStatement(s) -> List.append s acc
+            | NodeStatement(s,_) -> acc) []
+        |> Seq.distinct 
+        |> List.ofSeq
 
-    let createGraph dotTree = 
-        let edgeSmts = getEdgeSmts dotTree
-        let nodes = collapseListListToSet edgeSmts
-        let edges = (List.map pairs edgeSmts) |> List.fold List.append [] 
-        nodes,edges
+    let getEdges ((_,_,smts):DotAST) =
+        smts
+        |> List.fold (fun acc nm -> 
+            match nm with 
+            | EdgeStatement(s) -> Seq.append (Seq.pairwise s) acc
+            | NodeStatement(s,_) -> acc) Seq.empty
+        |> Seq.distinct 
+        |> List.ofSeq
+
+    let createGraph (dotTree:DotAST) = 
+        (getNodes dotTree,getEdges dotTree)
 
     let toAdjancencyGraph ((ns, es): 'a Graph) : 'a AdjacencyGraph = 
         let nodeMap = ns |> List.map (fun n -> n,[]) |> Map.ofList
