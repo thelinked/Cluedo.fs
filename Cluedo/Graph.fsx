@@ -341,4 +341,4 @@ let syntaxTree = getResult (parse  @"graph board {
 
 
 let gameBoard = syntaxTree |> createGraph |> toAdjancencyGraph
-let roite = depthFirst "WhiteStart" "BallRoom" gameBoard
+let route = depthFirst "WhiteStart" "BallRoom" gameBoard
