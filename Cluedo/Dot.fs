@@ -12,7 +12,7 @@ module Dot =
     type Node = Name
     type Statement = 
         | NodeStatement of Node * Attribute list
-        | EdgeStatement of Node list
+        | EdgeStatement of Node list * (Attribute list option)
 
     type DotAST = GraphType * Name * Statement list
 
@@ -79,9 +79,9 @@ module Dot =
 
     let edgeStatement op =
         let edge_rhs = (pstring op >>. ws >>. ID .>> ws) |> many
-        pipe2 
-            ID edge_rhs 
-            (fun x y -> x::y) .>> (pstring ";" |> optional) .>> ws 
+        pipe3 
+            ID edge_rhs (opt attribs)
+            (fun x y z -> (x::y),z) .>> (pstring ";" |> optional) .>> ws 
         |>> EdgeStatement
 
     let undirected = pstring "graph" |>> (fun x -> Graph) .>> ws

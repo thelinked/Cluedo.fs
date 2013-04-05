@@ -14,7 +14,7 @@ module Graph =
         smts
         |> List.fold (fun acc nm -> 
             match nm with 
-            | EdgeStatement(s) -> List.append s acc
+            | EdgeStatement(s,_) -> List.append s acc
             | NodeStatement(s,_) -> acc) []
         |> Seq.distinct 
         |> List.ofSeq
@@ -23,7 +23,7 @@ module Graph =
         smts
         |> List.fold (fun acc nm -> 
             match nm with 
-            | EdgeStatement(s) -> Seq.append (Seq.pairwise s) acc
+            | EdgeStatement(s,_) -> Seq.append (Seq.pairwise s) acc
             | NodeStatement(s,_) -> acc) Seq.empty
         |> Seq.distinct 
         |> List.ofSeq
