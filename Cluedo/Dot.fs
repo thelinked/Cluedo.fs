@@ -29,7 +29,8 @@ module Dot =
             (pstring "*/")
             (charsTillString "*/" false System.Int32.MaxValue)
             |>> ignore
-    let ws = choice[preProcesser; singlelineComment; multilineComment; spaces1] |> skipMany
+    let ws = 
+        choice[preProcesser; singlelineComment; multilineComment; spaces1] |> skipMany
 
 
     //ID's
@@ -61,7 +62,6 @@ module Dot =
     let ID: Parser<Name> = choice[numeral; stringLiteral; htmlString; identifier] .>> ws
 
     //Statements
-    //[color=red]
     let attribs = 
         let attrib = pipe2 
                         (ID .>> pstring "=" .>> ws) 
@@ -74,7 +74,8 @@ module Dot =
             (pstring "]")
             (pipe2 attrib attrib_rhs (fun x y -> x::y))
 
-    let nodeStatement = tuple2 ID attribs .>> ws |>> NodeStatement
+    let nodeStatement = 
+        tuple2 ID attribs .>> (pstring ";" |> optional) .>> ws |>> NodeStatement
 
     let edgeStatement op =
         let edge_rhs = (pstring op >>. ws >>. ID .>> ws) |> many
