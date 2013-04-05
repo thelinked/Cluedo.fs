@@ -10,23 +10,19 @@ module Graph =
     type 'a Node = 'a * 'a list
     type 'a AdjacencyGraph = 'a Node list
         
-    let getNodes ((_,_,smts):DotAST) =
+    let visitStatements collector empty ((_,_,smts):DotAST) =
         smts
         |> List.fold (fun acc nm -> 
             match nm with 
-            | EdgeStatement(s,_) -> List.append s acc
-            | NodeStatement(s,_) -> acc) []
+            | EdgeStatement(s,_) -> collector s acc
+            | NodeStatement(s,_) -> acc) empty
         |> Seq.distinct 
         |> List.ofSeq
 
+    let getNodes ((_,_,smts):DotAST) = visitStatements List.append []
+
     let getEdges ((_,_,smts):DotAST) =
-        smts
-        |> List.fold (fun acc nm -> 
-            match nm with 
-            | EdgeStatement(s,_) -> Seq.append (Seq.pairwise s) acc
-            | NodeStatement(s,_) -> acc) Seq.empty
-        |> Seq.distinct 
-        |> List.ofSeq
+        visitStatements (fun s acc -> Seq.append (Seq.pairwise s) acc) Seq.empty
 
     let createGraph (dotTree:DotAST) = 
         (getNodes dotTree,getEdges dotTree)
