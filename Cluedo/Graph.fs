@@ -16,7 +16,7 @@ module Graph =
             match nm with 
             | EdgeStatement(s,_) -> collectEdges s acc
             | NodeStatement(s,_) -> collectNodes s acc
-            |> _ -> acc) empty
+            | _ -> acc) empty
         |> Seq.distinct 
         |> List.ofSeq
 
@@ -26,10 +26,10 @@ module Graph =
     let foldNodes collector = 
         foldStatements (fun _ acc -> acc) collector
 
-    let getNodes ((_,_,smts):DotAST) = 
+    let getNodes = 
         foldEdges List.append []
 
-    let getEdges ((_,_,smts):DotAST) =
+    let getEdges =
         foldEdges (fun s acc -> Seq.append (Seq.pairwise s) acc) Seq.empty
 
     let createGraph (dotTree:DotAST) = 
