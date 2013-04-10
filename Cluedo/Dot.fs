@@ -65,7 +65,7 @@ module Dot =
             (fun a s b -> a+s+b)
  
     let ID: Parser<Name> = 
-        choice[numeral; stringLiteral; htmlString; identifier] .>> ws
+        choice[numeral; stringLiteral; htmlString; identifier] .>> ws <?> "Expected Identifier"
 
 
     //Attributes
@@ -92,7 +92,7 @@ module Dot =
         tuple2 ID attribs |>> NodeStatement
 
     let edgeStatement op =
-        let edge_rhs = (pstring op >>. ws >>. ID .>> ws) |> many
+        let edge_rhs = (pstring op >>. ws >>. ID .>> ws) |> many1
         pipe3 
             ID edge_rhs (opt attribs)
             (fun x y z -> (x::y),z)
