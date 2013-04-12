@@ -71,8 +71,7 @@ module Dot =
     //Attributes
     let attribs = 
         let attrib = pipe2 
-                        (ID .>> pstring "=" .>> ws) 
-                        (ID .>> ws) 
+                        (ID .>> pstring "=" .>> ws) ID  
                         (fun key value -> key,value)
         let attrib_rhs = pstring "," >>. attrib |> many
         between
@@ -91,9 +90,9 @@ module Dot =
     let nodeStatement = 
         tuple2 ID attribs |>> NodeStatement
 
-    let edgeStatement op =
-        let edge_rhs = (pstring op >>. ws >>. ID .>> ws) |> many1
-        pipe3 
+    let edgeStatement (op:string) =
+        let edge_rhs = (pstring op >>. ws >>. ID ) |> many1
+        pipe3
             ID edge_rhs (opt attribs)
             (fun x y z -> (x::y),z)
         |>> EdgeStatement
@@ -103,7 +102,7 @@ module Dot =
 
     //Graph
     let graph graphType edgeType = 
-        let graphName = ID .>> ws .>> pstring "{" .>> ws
+        let graphName = ID .>> pstring "{" .>> ws
         let smts = 
             choice [
                 (attempt attributeStatement); 
