@@ -342,3 +342,8 @@ let syntaxTree = getResult (parse  @"graph board {
 
 let gameBoard = syntaxTree |> createGraph |> toAdjancencyGraph
 let route = depthFirst "WhiteStart" "BallRoom" gameBoard
+
+let getCost (a,b) = 
+    1
+
+route |> Seq.pairwise |> Seq.map getCost |> Seq.reduce (+)

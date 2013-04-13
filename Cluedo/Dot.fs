@@ -7,19 +7,18 @@ module Dot =
         | Graph
         | Digraph
 
-    type Name = string
-    type Attribute = Name * Name
-    type Node = Name
+    type Attribute = string * string
     type AttributeTarget = 
         | AllGraph 
         | AllNodes
         | AllEdges
+
     type Statement = 
         | AttributeStatement of AttributeTarget * Attribute list
-        | NodeStatement of Node * Attribute list
-        | EdgeStatement of Node list * (Attribute list option)
+        | NodeStatement of string * Attribute list
+        | EdgeStatement of string list * (Attribute list option)
 
-    type DotAST = GraphType * Name * Statement list
+    type DotAST = GraphType * string * Statement list
 
     type UserState = unit
     type Parser<'t> = Parser<'t, UserState>
@@ -64,7 +63,7 @@ module Dot =
             (pstring ">") 
             (fun a s b -> a+s+b)
  
-    let ID: Parser<Name> = 
+    let ID: Parser<string> = 
         choice[numeral; stringLiteral; htmlString; identifier] .>> ws <?> "Expected Identifier"
 
 
