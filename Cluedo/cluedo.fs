@@ -11,33 +11,20 @@ module List =
 module Model = 
     //Data Model
     type Player = 
-        | Miss_Scarlett
-        | Colonel_Mustard
-        | Mrs_White
-        | Reverend_Green
-        | Mrs_Peacock
-        | Professor_Plum
+        | Miss_Scarlett  | Colonel_Mustard | Mrs_White
+        | Reverend_Green | Mrs_Peacock     | Professor_Plum
         static member All() = [ Miss_Scarlett; Colonel_Mustard; 
             Mrs_White; Reverend_Green; Mrs_Peacock; Professor_Plum; ]
 
     type Weapon = 
-        | Candlestick
-        | Lead_Pipe
-        | Revolver
-        | Rope
-        | Spanner
+        | Candlestick | Lead_Pipe | Revolver
+        | Rope        | Spanner
         static member All() = [ Candlestick; Lead_Pipe; Revolver; 
             Rope; Spanner; ]
 
     type Room = 
-        | Kitchen
-        | Ballroom
-        | Conservatory
-        | Billiard_Room
-        | Library
-        | Study
-        | Hall
-        | Lounge
+        | Kitchen | Ballroom | Conservatory | Billiard_Room
+        | Library | Study    | Hall         | Lounge
         | Dining_Room
         static member All() = 
             [ Kitchen; Ballroom; Conservatory; Billiard_Room; 
