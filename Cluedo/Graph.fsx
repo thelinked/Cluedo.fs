@@ -7,37 +7,6 @@
 open Cluedo.Dot
 open Cluedo.Graph
 
-let g: char Graph = 
-        (['b';'c';'d';'f';'g';'h';'k'], 
-         [('b','c');
-          ('b','f');
-          ('c','f');
-          ('f','k');
-          ('g','h')])  
-
-let ga: char AdjacencyGraph = 
-        [('b',['c'; 'f']); 
-         ('c',['b'; 'f']); 
-         ('d',[]); 
-         ('f',['b'; 'c'; 'k']); 
-         ('g',['h']); 
-         ('h',['g']); ('k',['f'])]
-
-let result = getResult (parse  @"graph graphname {
-     a -- b -- c;
-     b -- z;
-     b -- e;
-     f -- e;
-     f -- aaa;
-     aaa-- aab;
-     aab -- aac;
- }")
-
-let graph: string Graph  = createGraph result
-let adjGraph = toAdjancencyGraph graph
-let p = depthFirst "a" "aac" adjGraph
-
-
 let syntaxTree = getResult (parse  @"graph board {
     edge[cost=1]
     BallRoom -- Hallway148[cost=5];
@@ -340,49 +309,17 @@ let syntaxTree = getResult (parse  @"graph board {
     WhiteStart -- Hallway191;
 }")
 
-
 let gameBoard = syntaxTree |> createGraph |> toAdjancencyGraph
-let route = depthFirst "WhiteStart" "BallRoom" gameBoard
 
-let printNode key = 
-    gameBoard |> List.fold (fun acc n -> if fst n = key then do printfn "%A" n else acc) ()
+let printRoute (cost,route) = 
+    route 
+    |> List.ofSeq 
+    |> List.map (fun node -> printfn "%A - %A" node gameBoard.[node] ) 
+    |> ignore
 
-let getCostMap dotTree = 
-    let findCost defaultCost = function
-        | AllEdges, hd::_ when fst hd = "cost" -> System.Int32.Parse(snd hd)
-        | _ -> defaultCost
-
-    let collectEdges nodeList (attributes: Attribute list option) (c,m) = 
-        let cost = match attributes with
-                   | Some(a) -> findCost c (AllEdges,a)
-                   | None -> c
-
-        let m' = nodeList |> Seq.ofList |> Seq.pairwise |> Seq.map (fun n -> n,cost) |> List.ofSeq
-        (c,m @ m')
-
-    let setCost t attributes (c,m) = 
-        (findCost c (t,attributes), m)
-
-    foldStatements setCost (fun _ _ acc -> acc) collectEdges (1,[]) dotTree
-
-let costMap = syntaxTree |> getCostMap |> snd |> Map.ofList
-
-
-
-let costCheck (map:Map<'a*'a,int>) (route:'a seq) = 
-    let tryFind (f,s) = 
-        match (map.TryFind (f,s)) with 
-        | None -> map.TryFind (s,f)
-        | x -> x
-            
-    let possible = route |> Seq.pairwise |> Seq.map tryFind
-
-    let eval acc node = 
-        match acc,node with
-        | Some(a),Some(n) -> Some(a+n)
-        | _,_ -> None
-
-    possible |> Seq.fold eval (Some 0)
+let route = shortestPathBetween gameBoard "WhiteStart" "BallRoom";;
 
 route
-printNode "Hallway6"
+do printRoute route
+
+
