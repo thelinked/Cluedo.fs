@@ -7,12 +7,59 @@
 open Cluedo.Dot
 open Cluedo.Graph
 
+module Map =
+  let transposeCombine m =
+    (m, m) ||> Map.fold (fun acc k1 m' ->
+      (acc, m') ||> Map.fold (fun acc' k2 v ->
+        acc'
+        |> Map.add k2 (Map.add k1 v (defaultArg (acc' |> Map.tryFind k2) Map.empty))
+    ))
+
+type City =
+    | Boise   | LosAngeles | NewYork | Seattle
+    | StLouis | Phoenix    | Boston  | Chicago
+    | Denver
+
+let distanceBetweenCities =
+    [
+        (Boise, Map.ofList [(Seattle, 496);(Denver, 830);(Chicago, 1702)]);
+        (Seattle, Map.ofList [(LosAngeles, 1141);(Denver, 1321)]);
+        (LosAngeles, Map.ofList [(Denver, 1022);(Phoenix, 371)]);
+        (Phoenix, Map.ofList [(Denver, 809);(StLouis, 1504)]);
+        (Denver, Map.ofList [(StLouis, 588);(Chicago, 1009)]);
+        (Chicago, Map.ofList [(NewYork, 811);(Boston, 986)]);
+        (StLouis, Map.ofList [(Chicago, 300)]);
+        (Boston, Map.ofList [(StLouis, 986)]);
+        (NewYork, Map.ofList [(Boston, 211)])
+    ]
+    |> Map.ofList |> Map.transposeCombine
+
+
+shortestPathBetween distanceBetweenCities Seattle NewYork
+
+
 let syntaxTree = getResult (parse  @"graph board {
-    edge[cost=1]
-    BallRoom -- Hallway148[cost=5];
+
+    edge[cost=5];
+    BallRoom -- Hallway148;
     BallRoom -- Hallway163;
     BilliardRoom -- Hallway135;
     Conservatory -- Lounge;
+    Hallway11 -- BallRoom;
+    Hallway133 -- Library;
+    Kitchen -- Hallway17;
+    Kitchen -- Study;
+    Library -- Hallway120;
+    Study -- Hallway107;
+    Hallway94 -- Hall;
+    Hallway88 -- Hall;
+    Hallway89 -- Hall;
+    Hallway71 -- Lounge;
+    Hallway53 -- DiningRoom;
+    Hallway40 -- DiningRoom;
+    Hallway154 -- BilliardRoom;
+
+    edge[cost=1];
     GreenStart -- Hallway170;
     Hallway1 -- Hallway11;
     Hallway10 -- Hallway11;
@@ -34,7 +81,6 @@ let syntaxTree = getResult (parse  @"graph board {
     Hallway108 -- Hallway114;
     Hallway109 -- Hallway108;
     Hallway109 -- Hallway115;
-    Hallway11 -- BallRoom;
     Hallway11 -- Hallway12;
     Hallway110 -- Hallway109;
     Hallway110 -- Hallway111;
@@ -73,7 +119,6 @@ let syntaxTree = getResult (parse  @"graph board {
     Hallway132 -- Hallway131;
     Hallway132 -- Hallway133;
     Hallway133 -- Hallway134;
-    Hallway133 -- Library;
     Hallway134 -- Hallway135;
     Hallway136 -- Hallway35;
     Hallway137 -- Hallway136;
@@ -109,7 +154,6 @@ let syntaxTree = getResult (parse  @"graph board {
     Hallway151 -- Hallway161;
     Hallway153 -- Hallway151;
     Hallway153 -- Hallway154;
-    Hallway154 -- BilliardRoom;
     Hallway154 -- Hallway152;
     Hallway155 -- Hallway153;
     Hallway155 -- Hallway156;
@@ -206,7 +250,6 @@ let syntaxTree = getResult (parse  @"graph board {
     Hallway39 -- Hallway41;
     Hallway4 -- Hallway1;
     Hallway4 -- Hallway3;
-    Hallway40 -- DiningRoom;
     Hallway40 -- Hallway41;
     Hallway40 -- Hallway42;
     Hallway42 -- Hallway44;
@@ -226,7 +269,6 @@ let syntaxTree = getResult (parse  @"graph board {
     Hallway51 -- Hallway50;
     Hallway52 -- Hallway50;
     Hallway52 -- Hallway69;
-    Hallway53 -- DiningRoom;
     Hallway53 -- Hallway50;
     Hallway53 -- Hallway54;
     Hallway54 -- Hallway67;
@@ -260,7 +302,6 @@ let syntaxTree = getResult (parse  @"graph board {
     Hallway70 -- Hallway69;
     Hallway70 -- Hallway71;
     Hallway71 -- Hallway72;
-    Hallway71 -- Lounge;
     Hallway72 -- Hallway66;
     Hallway72 -- Hallway73;
     Hallway73 -- Hallway65;
@@ -284,8 +325,6 @@ let syntaxTree = getResult (parse  @"graph board {
     Hallway85 -- Hallway70;
     Hallway87 -- Hallway48;
     Hallway87 -- Hallway88;
-    Hallway88 -- Hall;
-    Hallway89 -- Hall;
     Hallway89 -- Hallway88;
     Hallway89 -- Hallway90;
     Hallway9 -- Hallway8;
@@ -294,18 +333,13 @@ let syntaxTree = getResult (parse  @"graph board {
     Hallway92 -- Hallway106;
     Hallway93 -- Hallway92;
     Hallway93 -- Hallway94;
-    Hallway94 -- Hall;
     Hallway94 -- Hallway102;
     Hallway95 -- Hallway94;
     Hallway96 -- Hallway95;
     Hallway96 -- Hallway97;
     Hallway98 -- Hallway97;
     Hallway98 -- Hallway99;
-    Kitchen -- Hallway17;
-    Kitchen -- Study;
-    Library -- Hallway120;
     ScarlettStart -- Hallway81;
-    Study -- Hallway107;
     WhiteStart -- Hallway191;
 }")
 
