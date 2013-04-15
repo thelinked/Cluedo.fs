@@ -12,22 +12,22 @@ module Graph =
 
     type 'a Cost when 'a : comparison = Map<'a*'a,int>
 
-    let foldStatements collectEdges collectNodes empty (_,_,smts) =
+    let foldStatements collectAttribs collectNodes collectEdges empty ((_,_,smts):DotAST) = 
         smts
         |> List.fold (fun acc nm -> 
             match nm with 
-            | EdgeStatement(s,_) -> collectEdges s acc
-            | NodeStatement(s,_) -> collectNodes s acc
-            | _ -> acc) empty
+            | AttributeStatement(t,attribs) -> collectAttribs t attribs acc
+            | NodeStatement(s,a) -> collectNodes s a acc
+            | EdgeStatement(s,a) -> collectEdges s a acc) empty
+
+    let foldEdges collecter empty dotAST = 
+        foldStatements (fun _ _ acc -> acc) (fun _ _ acc -> acc) collecter empty dotAST
         |> Seq.distinct 
         |> List.ofSeq
-         
-    let foldEdges collector = 
-        foldStatements collector (fun _ acc -> acc)
-        
+
     let createGraph dotTree :string Graph = 
-        let nodes = foldEdges List.append [] dotTree
-        let edges = foldEdges (fun s acc -> Seq.append (Seq.pairwise s) acc) Seq.empty dotTree
+        let nodes = foldEdges (fun s a acc -> s @ acc) [] dotTree
+        let edges = foldEdges (fun s a acc -> Seq.append (Seq.pairwise s) acc) Seq.empty dotTree
         nodes,edges
 
     let toAdjancencyGraph ((ns, es): 'a Graph) : 'a AdjacencyGraph = 

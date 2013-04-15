@@ -26,6 +26,7 @@ test (many undirected_edge_smt) @"a -- b -- c -- d;
 test dot  @"digraph graphname {
      a[color=red]
      node[color=blue];
+     edge[cost=1];
      a -> b -> c [color=white];
      b -> d
  }"

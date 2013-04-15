@@ -39,7 +39,8 @@ let p = depthFirst "a" "aac" adjGraph
 
 
 let syntaxTree = getResult (parse  @"graph board {
-    BallRoom -- Hallway148;
+    edge[cost=1]
+    BallRoom -- Hallway148[cost=5];
     BallRoom -- Hallway163;
     BilliardRoom -- Hallway135;
     Conservatory -- Lounge;
@@ -343,7 +344,45 @@ let syntaxTree = getResult (parse  @"graph board {
 let gameBoard = syntaxTree |> createGraph |> toAdjancencyGraph
 let route = depthFirst "WhiteStart" "BallRoom" gameBoard
 
-let getCost (a,b) = 
-    1
+let printNode key = 
+    gameBoard |> List.fold (fun acc n -> if fst n = key then do printfn "%A" n else acc) ()
 
-route |> Seq.pairwise |> Seq.map getCost |> Seq.reduce (+)
+let getCostMap dotTree = 
+    let findCost defaultCost = function
+        | AllEdges, hd::_ when fst hd = "cost" -> System.Int32.Parse(snd hd)
+        | _ -> defaultCost
+
+    let collectEdges nodeList (attributes: Attribute list option) (c,m) = 
+        let cost = match attributes with
+                   | Some(a) -> findCost c (AllEdges,a)
+                   | None -> c
+
+        let m' = nodeList |> Seq.ofList |> Seq.pairwise |> Seq.map (fun n -> n,cost) |> List.ofSeq
+        (c,m @ m')
+
+    let setCost t attributes (c,m) = 
+        (findCost c (t,attributes), m)
+
+    foldStatements setCost (fun _ _ acc -> acc) collectEdges (1,[]) dotTree
+
+let costMap = syntaxTree |> getCostMap |> snd |> Map.ofList
+
+
+
+let costCheck (map:Map<'a*'a,int>) (route:'a seq) = 
+    let tryFind (f,s) = 
+        match (map.TryFind (f,s)) with 
+        | None -> map.TryFind (s,f)
+        | x -> x
+            
+    let possible = route |> Seq.pairwise |> Seq.map tryFind
+
+    let eval acc node = 
+        match acc,node with
+        | Some(a),Some(n) -> Some(a+n)
+        | _,_ -> None
+
+    possible |> Seq.fold eval (Some 0)
+
+route
+printNode "Hallway6"
