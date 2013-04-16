@@ -61,16 +61,16 @@ module Model =
     let shuffle cards = 
         let rand = new System.Random()
         cards
-            |> List.map (fun c -> (rand.Next(), c))
-            |> List.sortBy fst
-            |> List.map snd
+        |> List.map (fun c -> (rand.Next(), c))
+        |> List.sortBy fst
+        |> List.map snd
       
     let deal list n: Hand list = 
         list 
-            |> List.mapi (fun i elem -> i % n, elem)
-            |> List.sortBy fst
-            |> List.splitOn (fun (a1,a2) (b1,b2) -> b1 - a1 > 0)
-            |> List.map (fun l -> List.map snd l)
+        |> List.mapi (fun i elem -> i % n, elem)
+        |> List.sortBy fst
+        |> List.splitOn (fun (a1,a2) (b1,b2) -> b1 - a1 > 0)
+        |> List.map (fun l -> List.map snd l)
 
     //Dice functions
     let fairDice n = 
@@ -80,14 +80,14 @@ module Model =
 
     //Game control functions
     let createGame n = 
-        let players = shuffle (Player.All())
-        let weapons = shuffle (Weapon.All())
-        let rooms = shuffle (Room.All())
+        let players = Player.All() |> shuffle
+        let weapons = Weapon.All() |> shuffle
+        let rooms =     Room.All() |> shuffle
         let murder = { murderer = List.head players; weapon = List.head weapons; room = List.head rooms }
 
-        let deck = shuffle [ for p in List.tail players do yield Player(p)
-                             for w in List.tail weapons do yield Weapon(w)
-                             for r in List.tail rooms do yield Room(r) ]
+        let get list cardType = List.tail list |> List.map cardType
+
+        let deck = get players Player @ get weapons Weapon @ get rooms Room |> shuffle
 
         Cards(murder, deal deck n)
 
@@ -111,9 +111,7 @@ module Model =
             match order with
             | [] -> None
             | h::t -> match queryHand suggested (cards.player h) with
-                        | [] -> suggestHelper t
-                        | x -> Some(h,x)
+                      | [] -> suggestHelper t
+                      | x -> Some(h,x)
 
-        let playerOrder = queryOrder playerNumber cards.numPlayers
-        suggestHelper playerOrder
-
+        suggestHelper <| queryOrder playerNumber cards.numPlayers
