@@ -57,7 +57,7 @@ module Model =
         (cards.player n)
         |> List.iter (fun (c: Card) -> printfn "\t'%A'" c) 
         
-    //Deck functions
+    //Deck
     let shuffle cards = 
         let rand = new System.Random()
         cards
@@ -72,13 +72,13 @@ module Model =
         |> List.splitOn (fun (a1,a2) (b1,b2) -> b1 - a1 > 0)
         |> List.map (fun l -> List.map snd l)
 
-    //Dice functions
+    //Dice
     let fairDice n = 
         let rand = new System.Random()
         fun () -> rand.Next()%n
 
 
-    //Game control functions
+    //Game control
     let createGame n = 
         let players = Player.All() |> shuffle
         let weapons = Weapon.All() |> shuffle
@@ -86,20 +86,18 @@ module Model =
         let murder = { murderer = List.head players; weapon = List.head weapons; room = List.head rooms }
 
         let get list cardType = List.tail list |> List.map cardType
-
         let deck = get players Player @ get weapons Weapon @ get rooms Room |> shuffle
 
         Cards(murder, deal deck n)
 
-    //Query functions
+    //Query
     let queryOrder player max = 
         [0..max-1]
         |> List.map (fun s -> (s+player)%max)
         |> List.tail
 
     let queryHand query hand = 
-        let hasAny card = 
-            match card with
+        let hasAny = function
             | Player(card) when card = query.murderer -> true
             | Weapon(card) when card = query.weapon -> true
             | Room(card) when card = query.room -> true
