@@ -68,4 +68,15 @@ module Graph =
             else accMap
 
       let shortestPaths = searchForShortestPath start 0 [] Map.empty
-      shortestPaths.[finish]
+      shortestPaths.TryFind finish
+
+
+    let shortestPathBetweenBlocked (distancesBetween:Map<'a,Map<'a,int>>) start finish (blocked:'a list) =
+        let graph' = 
+            distancesBetween
+            |> Map.removeMany blocked
+            |> Map.map (fun name connections -> 
+                Map.filter (fun n cost -> 
+                    List.exists ((=)n) blocked |> not) connections)
+
+        shortestPathBetween graph' start finish

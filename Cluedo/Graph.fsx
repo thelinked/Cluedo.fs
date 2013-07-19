@@ -314,15 +314,20 @@ let syntaxTree = getResult <| parse  @"graph board {
 
 let gameBoard = syntaxTree |> createGraph |> toAdjancencyGraph
 
-let printRoute (cost,route) = 
-    route 
-    |> List.ofSeq 
-    |> List.map (fun node -> printfn "%A - %A" node gameBoard.[node] ) 
-    |> ignore
+let printRoute path = 
+    match path with
+    | None -> printfn "No route available"
+    | Some(cost,route) -> 
+        route 
+        |> List.ofSeq 
+        |> List.map (fun node -> printfn "%A - %A" node gameBoard.[node] ) 
+        |> ignore
 
 let route = shortestPathBetween gameBoard "WhiteStart" "BallRoom"
+let route' = shortestPathBetweenBlocked gameBoard "WhiteStart" "BallRoom" []
+let route'' = shortestPathBetweenBlocked gameBoard "WhiteStart" "BallRoom" ["Hallway11"]
+let route''' = shortestPathBetweenBlocked gameBoard "WhiteStart" "BallRoom" ["Hallway1"]
 
-route
-do printRoute route
+
 
 
