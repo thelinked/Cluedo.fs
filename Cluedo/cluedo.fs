@@ -9,6 +9,9 @@ module List =
         loop lst [] []
 
 module Model = 
+    open Board
+    open Graph
+
     //Data Model
     type Player = 
         | Miss_Scarlett  | Colonel_Mustard | Mrs_White
@@ -43,20 +46,66 @@ module Model =
         room : Room;
     }
 
-    
-    type Cards (murder: Murder, player_hands: Hand list) = 
-        member this.murder = murder
-        member this.playerHands = player_hands
-        member this.numPlayers = List.length this.playerHands
-        member this.player = function 
-            | n when n < this.numPlayers -> List.nth this.playerHands n 
-            | _ -> []
+    let getStart = function
+        | Miss_Scarlett -> "ScarlettStart"
+        | Colonel_Mustard -> "MustardStart"
+        | Mrs_White -> "WhiteStart"
+        | Reverend_Green -> "GreenStart"
+        | Mrs_Peacock -> "PeacockStart"
+        | Professor_Plum -> "PlumStart"
 
-    let printPlayer (cards: Cards) n =
-        printfn "Player %A's hand" n
-        (cards.player n)
+    type GamePlayer(character, hand) = 
+        let mutable _position = getStart character
+
+        member this.character = character
+        member this.hand = hand
+        member this.position
+            with public get() = _position
+            and public set value = 
+                _position <- value
+
+    type GameContext (murder: Murder, players: GamePlayer list) = 
+        member this.murder = murder
+        member this.players = players
+        member this.numPlayers = List.length this.players
+        member this.player = function 
+            | n when n < this.numPlayers -> List.nth this.players n
+            | _ -> failwith "Tried to get a player that doesn't exist"
+        member this.board = gameBoard
+        member this.otherPlayers character func = 
+            players
+            |> List.fold (fun acc (next: GamePlayer) -> 
+                match next.character with
+                | x when x = character -> next::acc
+                | _ -> acc) []
+            |> List.map func
+
+    type Board (playerNumber) =
+        member this.positions = []
+
+    let printPlayer (context: GameContext) n =
+        let player = context.player n
+
+        printfn "Player %A" n
+        printfn "Character: %A" player.character
+        printfn "Position: %A" player.position
+        printfn "Hand" 
+        player.hand
         |> List.iter (fun (c: Card) -> printfn "\t'%A'" c) 
         
+    //Movement
+    let move (game:GameContext) (player:GamePlayer) desc movement = 
+        let otherPlayerLocs = game.otherPlayers player.character (fun p -> p.position )
+        let possibleRoute = shortestPathBetween gameBoard player.position desc
+
+        match possibleRoute with
+        | Some(cost,route) -> 
+            match List.length route with
+            | x when movement > x -> ()
+            | _ -> ()
+        | None -> ()
+
+
     //Deck
     let shuffle cards = 
         let rand = new System.Random()
@@ -79,19 +128,25 @@ module Model =
 
 
     //Game control
-    let createGame n = 
-        let players = Player.All() |> shuffle
-        let weapons = Weapon.All() |> shuffle
-        let rooms =     Room.All() |> shuffle
-        let murder = { murderer = List.head players; weapon = List.head weapons; room = List.head rooms }
+    let createGame (players: Player list) = 
+        let playerCount = List.length players
+
+        let playerCards = Player.All() |> shuffle
+        let weaponCards = Weapon.All() |> shuffle
+        let roomCards =     Room.All() |> shuffle
+        let murder = { murderer = List.head playerCards; weapon = List.head weaponCards; room = List.head roomCards }
 
         let get list cardType = List.tail list |> List.map cardType
-        let deck = get players Player @ get weapons Weapon @ get rooms Room |> shuffle
+        let deck = get playerCards Player @ get weaponCards Weapon @ get roomCards Room |> shuffle
+        let hands = deal deck playerCount
 
-        Cards(murder, deal deck n)
+        let gamePlayers = List.fold2 (fun acc (hand: Hand) (player:Player) -> 
+            GamePlayer(player, hand)::acc) [] hands players
+
+        GameContext(murder, gamePlayers)
 
     //Query
-    let queryOrder player max = 
+    let queryOrder max player= 
         [0..max-1]
         |> List.map (fun s -> (s+player)%max)
         |> List.tail
@@ -104,12 +159,11 @@ module Model =
             | _ -> false
         List.filter hasAny hand
 
-    let suggest (cards: Cards) playerNumber suggested = 
-        let rec suggestHelper order = 
-            match order with
+    let suggest (context: GameContext) playerNumber suggested = 
+        let rec suggestHelper = function
             | [] -> None
-            | h::t -> match queryHand suggested (cards.player h) with
+            | h::t -> match queryHand suggested ((context.player h).hand) with
                       | [] -> suggestHelper t
                       | x -> Some(h,x)
 
-        suggestHelper <| queryOrder playerNumber cards.numPlayers
+        suggestHelper <| queryOrder context.numPlayers playerNumber
