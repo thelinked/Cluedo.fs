@@ -101,8 +101,8 @@ module Model =
         match possibleRoute with
         | Some(cost,route) -> 
             match List.length route with
-            | x when movement > x -> ()
-            | _ -> ()
+            | x when movement > x -> player.position <- desc
+            | _ ->  player.position <- List.nth route movement
         | None -> ()
 
 
