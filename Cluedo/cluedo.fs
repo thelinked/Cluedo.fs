@@ -8,8 +8,16 @@ module List =
             | _ ->                      List.rev ((List.rev inner) :: outer)
         loop lst [] []
 
+    let generateCircularSeq (lst:'a list) = 
+        let rec next () = 
+            seq { 
+                for element in lst 
+                    do yield element
+                yield! next ()
+            }
+        next ()
+
 module Model = 
-    open Board
     open Graph
 
     //Data Model
@@ -46,13 +54,51 @@ module Model =
         room : Room;
     }
 
+    type Accuse = {
+        player: Player;
+        murder: Murder;
+        accuesedPlayer: int;
+        success: bool;
+    }
+
+    type Suggestion = {
+        player: Player;
+        murder: Murder;
+        cardsRevealed: int;
+        cardsRevealedByPlayer: int;
+    }
+    
+    type PlayerMovement = {
+        player: Player;
+        start: string;
+        desc: string
+    }
+
+    type Update = 
+        | NoUpdate
+        | Accuse         of Accuse
+        | Suggestion     of Suggestion
+        | PlayerMovement of PlayerMovement
+
     let getStart = function
-        | Miss_Scarlett -> "ScarlettStart"
+        | Miss_Scarlett   -> "ScarlettStart"
         | Colonel_Mustard -> "MustardStart"
-        | Mrs_White -> "WhiteStart"
-        | Reverend_Green -> "GreenStart"
-        | Mrs_Peacock -> "PeacockStart"
-        | Professor_Plum -> "PlumStart"
+        | Mrs_White       -> "WhiteStart"
+        | Reverend_Green  -> "GreenStart"
+        | Mrs_Peacock     -> "PeacockStart"
+        | Professor_Plum  -> "PlumStart"
+
+    let canSuggest = function
+        | "BallRoom"     -> (true,Ballroom)
+        | "BilliardRoom" -> (true,Billiard_Room)
+        | "Conservatory" -> (true,Conservatory)
+        | "Lounge"       -> (true,Lounge)
+        | "Library"      -> (true,Library)
+        | "Kitchen"      -> (true,Kitchen)
+        | "Study"        -> (true,Study)
+        | "Hall"         -> (true,Hall)
+        | "DiningRoom"   -> (true,Dining_Room)
+        | _              -> (false,Ballroom)
 
     type GamePlayer(character, hand) = 
         let mutable _position = getStart character
@@ -61,17 +107,17 @@ module Model =
         member this.hand = hand
         member this.position
             with public get() = _position
-            and public set value = 
-                _position <- value
+            and public set value = _position <- value
 
     type GameContext (murder: Murder, players: GamePlayer list) = 
         member this.murder = murder
         member this.players = players
-        member this.numPlayers = List.length this.players
+        member this.playerCount = List.length this.players
         member this.player = function 
-            | n when n < this.numPlayers -> List.nth this.players n
+            | n when n < this.playerCount -> List.nth this.players n
             | _ -> failwith "Tried to get a player that doesn't exist"
-        member this.board = gameBoard
+
+        member this.board = Board.gameBoard
         member this.otherPlayers character func = 
             players
             |> List.fold (fun acc (next: GamePlayer) -> 
@@ -80,31 +126,32 @@ module Model =
                 | _ -> acc) []
             |> List.map func
 
-    type Board (playerNumber) =
-        member this.positions = []
-
     let printPlayer (context: GameContext) n =
         let player = context.player n
-
         printfn "Player %A" n
         printfn "Character: %A" player.character
         printfn "Position: %A" player.position
         printfn "Hand" 
-        player.hand
-        |> List.iter (fun (c: Card) -> printfn "\t'%A'" c) 
+        player.hand |> List.iter (fun (c: Card) -> printfn "\t'%A'" c) 
         
     //Movement
-    let move (game:GameContext) (player:GamePlayer) desc movement = 
-        let otherPlayerLocs = game.otherPlayers player.character (fun p -> p.position )
-        let possibleRoute = shortestPathBetween gameBoard player.position desc
+    let move (game:GameContext) movement (player:GamePlayer) desc :Update = 
+        if movement = 0 then 
+            NoUpdate
+        else
+            let otherPlayerLocs = game.otherPlayers player.character (fun p -> p.position )
+            let possibleRoute = shortestPathBetween game.board player.position desc
+            let start = player.position
+            let index = movement-1
 
-        match possibleRoute with
-        | Some(cost,route) -> 
-            match List.length route with
-            | x when movement > x -> player.position <- desc
-            | _ ->  player.position <- List.nth route movement
-        | None -> ()
-
+            match possibleRoute with
+            | Some(cost,route) -> 
+                do match List.length route with
+                   | x when index >= x -> do player.position <- desc
+                   | _ -> 
+                    do player.position <- List.nth route index
+                PlayerMovement({ player = player.character; start = start; desc = player.position})
+            | None -> NoUpdate
 
     //Deck
     let shuffle cards = 
@@ -126,11 +173,11 @@ module Model =
         let rand = new System.Random()
         fun () -> rand.Next()%n
 
+    let d6 = fairDice 6
 
     //Game control
     let createGame (players: Player list) = 
         let playerCount = List.length players
-
         let playerCards = Player.All() |> shuffle
         let weaponCards = Weapon.All() |> shuffle
         let roomCards =     Room.All() |> shuffle
@@ -140,13 +187,13 @@ module Model =
         let deck = get playerCards Player @ get weaponCards Weapon @ get roomCards Room |> shuffle
         let hands = deal deck playerCount
 
-        let gamePlayers = List.fold2 (fun acc (hand: Hand) (player:Player) -> 
+        let gamePlayers = List.fold2 (fun acc (hand: Hand) (player: Player) -> 
             GamePlayer(player, hand)::acc) [] hands players
 
         GameContext(murder, gamePlayers)
 
     //Query
-    let queryOrder max player= 
+    let queryOrder max player = 
         [0..max-1]
         |> List.map (fun s -> (s+player)%max)
         |> List.tail
@@ -155,15 +202,15 @@ module Model =
         let hasAny = function
             | Player(card) when card = query.murderer -> true
             | Weapon(card) when card = query.weapon -> true
-            | Room(card) when card = query.room -> true
+            | Room(card)   when card = query.room -> true
             | _ -> false
         List.filter hasAny hand
 
     let suggest (context: GameContext) playerNumber suggested = 
-        let rec suggestHelper = function
+        let rec loop = function
             | [] -> None
             | h::t -> match queryHand suggested ((context.player h).hand) with
-                      | [] -> suggestHelper t
+                      | [] -> loop t
                       | x -> Some(h,x)
 
-        suggestHelper <| queryOrder context.numPlayers playerNumber
+        loop <| queryOrder context.playerCount playerNumber

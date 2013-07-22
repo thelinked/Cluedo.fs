@@ -15,21 +15,52 @@ open Cluedo.Model
 
 let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White;]
 let query = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
-let p0Suggests = suggest game 0
-let p1Suggests = suggest game 1
-let p2Suggests = suggest game 2
+
+let playerTurn player movementFunc suggestFunc =
+    let moveAmount = d6 ()
+    let desc = movementFunc moveAmount
+    let moveUpdate = move game moveAmount player desc
+
+    match canSuggest player.position with
+    | true,room -> suggestFunc room::moveUpdate::[]
+    | false,_   -> moveUpdate::[]
+
+let randomMoveGen () = 
+    let descs = Map.fold (fun acc key value -> key::acc) [] game.board
+    let pick = fairDice (List.length descs)
+    (fun (moveAmount: int) -> List.nth descs (pick ()))
+
+let blankSuggest = fun room -> 
+    Suggestion(
+     {
+        player = Miss_Scarlett; 
+        murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = room };
+        cardsRevealed = 0; 
+        cardsRevealedByPlayer = 0})
+
+type PlayerModel(n: int) = 
+    member this.n = n
+    member this.move = randomMoveGen ()
+    member this.suggest = blankSuggest
+
+let turns = 
+    [PlayerModel(0); PlayerModel(1); PlayerModel(2);]
+    |> List.generateCircularSeq
+    |> Seq.map (fun (p) -> playerTurn (game.player p.n) p.move p.suggest)
+    |> Seq.concat
 
 
-
+turns
+|> Seq.filter (function | Suggestion(x) -> true | _ -> false)
 
 let playGame card_state = 
-    let turnsleft = 20
-    let player = 0
     let rec loop (cards: GameContext) p turnsleft = 
-        printfn "Its players %A turn with %A turns left" player turnsleft
-        match (player,turnsleft) with 
+        printfn "Its players %A turn with %A turns left" p turnsleft
+        match (p,turnsleft) with 
         | (_,0) -> 0
-        | (n,_) when n < cards.numPlayers -> loop card_state (p+1) (turnsleft-1)
+        | (n,_) when n < (cards.playerCount-1) -> loop card_state (p+1) (turnsleft-1)
         | _ ->  loop card_state 0 turnsleft-1
-            
+           
+    let turnsleft = 20
+    let player = 0 
     loop card_state player turnsleft
