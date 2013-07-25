@@ -212,3 +212,8 @@ module Model =
                       | x -> Some(h,x)
 
         loop <| queryOrder context.players.Length playerCount
+
+
+    let getNextFunc (seqOfLines : seq<'a>) =               
+        let linesIE = seqOfLines.GetEnumerator()
+        (fun () -> ignore (linesIE.MoveNext()); linesIE.Current)

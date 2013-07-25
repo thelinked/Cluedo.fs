@@ -15,7 +15,6 @@ open Cluedo.Model
 open FSharpx.Collections
 open System.Collections
 
-
 let playerTurn context (player: Player) movementFunc suggestFunc =
     let moveAmount = d6 ()
     let desc = movementFunc moveAmount
@@ -39,23 +38,13 @@ let blankSuggest room =
         cardsRevealedByPlayer = 0
      })
 
-let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White;]
-
-type PlayerModel(n: int, character: Character) = 
+type PlayerModel(game, n: int, character: Character) = 
     member this.character = character
     member this.n = n
     member this.move = randomMoveGen game
     member this.suggest = blankSuggest
 
-let turns = 
-    [PlayerModel(0,Miss_Scarlett); PlayerModel(1,Colonel_Mustard); PlayerModel(2,Mrs_White);]
-    |> List.generateCircularSeq
-
-let getNextFunc (seqOfLines : seq<'a>) =               
-    let linesIE = seqOfLines.GetEnumerator()
-    (fun () -> ignore (linesIE.MoveNext()); linesIE.Current);;
-
-let play =
+let play game turns =
     let next = getNextFunc turns
     let rec loop (context: GameContext) = 
         seq {
@@ -70,19 +59,10 @@ let play =
     loop game
 
 
+let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White;]
 let murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
-let changes = play |> Seq.take 20 |> List.ofSeq
+let turns = 
+    [PlayerModel(game, 0,Miss_Scarlett); PlayerModel(game, 1,Colonel_Mustard); PlayerModel(game, 2,Mrs_White);]
+    |> List.generateCircularSeq
 
-
-
-let playGame context = 
-    let rec loop (context': GameContext) p turnsleft = 
-        printfn "Its players %A turn with %A turns left" p turnsleft
-        match (p,turnsleft) with 
-        | (_,0) -> 0
-        | (n,_) when n < (context'.players.Length-1) -> loop context' (p+1) (turnsleft-1)
-        | _ ->  loop context 0 turnsleft-1
-           
-    let turnsleft = 20
-    let player = 0 
-    loop context player turnsleft
+let changes = play game turns |> Seq.take 20 |> List.ofSeq
