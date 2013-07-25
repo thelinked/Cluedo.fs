@@ -12,55 +12,77 @@ open Cluedo
 
 #load "cluedo.fs"
 open Cluedo.Model
+open FSharpx.Collections
+open System.Collections
 
-let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White;]
-let query = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
 
-let playerTurn player movementFunc suggestFunc =
+let playerTurn context (player: Player) movementFunc suggestFunc =
     let moveAmount = d6 ()
     let desc = movementFunc moveAmount
-    let moveUpdate = move game moveAmount player desc
+    let context',moveUpdate = move context moveAmount player.character desc
 
-    match canSuggest player.position with
-    | true,room -> suggestFunc room::moveUpdate::[]
-    | false,_   -> moveUpdate::[]
+    match canSuggestFrom player.position with
+    | Some(room) -> context',(suggestFunc room::moveUpdate::[])
+    | None       -> context',(moveUpdate::[])
 
-let randomMoveGen () = 
-    let descs = Map.fold (fun acc key value -> key::acc) [] game.board
+let randomMoveGen context = 
+    let descs = Map.fold (fun acc key value -> key::acc) [] context.board
     let pick = fairDice (List.length descs)
     (fun (moveAmount: int) -> List.nth descs (pick ()))
 
-let blankSuggest = fun room -> 
+let blankSuggest room = 
     Suggestion(
      {
-        player = Miss_Scarlett; 
+        character = Miss_Scarlett; 
         murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = room };
         cardsRevealed = 0; 
-        cardsRevealedByPlayer = 0})
+        cardsRevealedByPlayer = 0
+     })
 
-type PlayerModel(n: int) = 
+let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White;]
+
+type PlayerModel(n: int, character: Character) = 
+    member this.character = character
     member this.n = n
-    member this.move = randomMoveGen ()
+    member this.move = randomMoveGen game
     member this.suggest = blankSuggest
 
 let turns = 
-    [PlayerModel(0); PlayerModel(1); PlayerModel(2);]
+    [PlayerModel(0,Miss_Scarlett); PlayerModel(1,Colonel_Mustard); PlayerModel(2,Mrs_White);]
     |> List.generateCircularSeq
-    |> Seq.map (fun (p) -> playerTurn (game.player p.n) p.move p.suggest)
-    |> Seq.concat
+
+let getNextFunc (seqOfLines : seq<'a>) =               
+    let linesIE = seqOfLines.GetEnumerator()
+    (fun () -> ignore (linesIE.MoveNext()); linesIE.Current);;
+
+let play =
+    let next = getNextFunc turns
+    let rec loop (context: GameContext) = 
+        seq {
+            let (player: PlayerModel) = next ()
+            let otherPlayerLocs = context.others player.character (fun p -> p.position )
+            let context',updates = playerTurn context (context.player player.character) player.move player.suggest
+
+            for update in updates 
+                do yield updates
+            yield! loop context'
+        }
+    loop game
 
 
-turns
-|> Seq.filter (function | Suggestion(x) -> true | _ -> false)
+let murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
+let changes = play |> Seq.take 20 |> List.ofSeq
 
-let playGame card_state = 
-    let rec loop (cards: GameContext) p turnsleft = 
+
+
+let playGame context = 
+    let rec loop (context': GameContext) p turnsleft = 
         printfn "Its players %A turn with %A turns left" p turnsleft
         match (p,turnsleft) with 
         | (_,0) -> 0
-        | (n,_) when n < (cards.playerCount-1) -> loop card_state (p+1) (turnsleft-1)
-        | _ ->  loop card_state 0 turnsleft-1
+        | (n,_) when n < (context'.players.Length-1) -> loop context' (p+1) (turnsleft-1)
+        | _ ->  loop context 0 turnsleft-1
            
     let turnsleft = 20
     let player = 0 
-    loop card_state player turnsleft
+    loop context player turnsleft

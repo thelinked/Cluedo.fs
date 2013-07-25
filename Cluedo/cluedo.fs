@@ -19,9 +19,11 @@ module List =
 
 module Model = 
     open Graph
+    open FSharpx.Lens.Operators
+    open FSharpx
 
     //Data Model
-    type Player = 
+    type Character = 
         | Miss_Scarlett  | Colonel_Mustard | Mrs_White
         | Reverend_Green | Mrs_Peacock     | Professor_Plum
         static member All() = [ Miss_Scarlett; Colonel_Mustard; 
@@ -42,34 +44,34 @@ module Model =
             Library; Study; Hall; Lounge; Dining_Room; ]
 
     type Card = 
-        | Player of Player
+        | Player of Character
         | Weapon of Weapon
         | Room of Room
     
     type Hand = Card list
     
     type Murder = {
-        murderer : Player;
+        murderer : Character;
         weapon : Weapon;
         room : Room;
     }
 
     type Accuse = {
-        player: Player;
+        character: Character;
         murder: Murder;
         accuesedPlayer: int;
         success: bool;
     }
 
     type Suggestion = {
-        player: Player;
+        character: Character;
         murder: Murder;
         cardsRevealed: int;
         cardsRevealedByPlayer: int;
     }
     
     type PlayerMovement = {
-        player: Player;
+        character: Character;
         start: string;
         desc: string
     }
@@ -80,6 +82,36 @@ module Model =
         | Suggestion     of Suggestion
         | PlayerMovement of PlayerMovement
 
+    type Player = {
+        character: Character;
+        hand: Card list;
+        position: string;
+    } with
+        static member Position = 
+            { Get = fun (x: Player) -> x.position
+              Set = fun v (x: Player) -> { x with position = v } }
+        static member Character = 
+            { Get = fun (x: Player) -> x.character
+              Set = fun v (x: Player) -> { x with character = v } }
+        static member print (x: Player) =
+            printfn "Character: %A\nPosition: %AHand" x.character x.position
+            x.hand |> List.iter (fun (c: Card) -> printfn "\t'%A'" c) 
+
+    type GameContext = {
+        board : string AdjacencyGraph;
+        players : Player list;
+        murder: Murder;
+    }
+    with 
+        member s.others char func = 
+            s.players |> List.filter (fun p -> p.character <> char) |> List.map func
+        member s.player char = 
+            s.players |> List.find (fun p -> p.character = char)
+        static member Players = 
+            { Get = fun (x: GameContext) -> x.players
+              Set = fun v (x: GameContext) -> { x with players = v } }
+        
+    //Lookups
     let getStart = function
         | Miss_Scarlett   -> "ScarlettStart"
         | Colonel_Mustard -> "MustardStart"
@@ -88,72 +120,25 @@ module Model =
         | Mrs_Peacock     -> "PeacockStart"
         | Professor_Plum  -> "PlumStart"
 
-    let canSuggest = function
-        | "BallRoom"     -> (true,Ballroom)
-        | "BilliardRoom" -> (true,Billiard_Room)
-        | "Conservatory" -> (true,Conservatory)
-        | "Lounge"       -> (true,Lounge)
-        | "Library"      -> (true,Library)
-        | "Kitchen"      -> (true,Kitchen)
-        | "Study"        -> (true,Study)
-        | "Hall"         -> (true,Hall)
-        | "DiningRoom"   -> (true,Dining_Room)
-        | _              -> (false,Ballroom)
+    let canSuggestFrom = function
+        | "BallRoom"     -> Some(Ballroom)
+        | "BilliardRoom" -> Some(Billiard_Room)
+        | "Conservatory" -> Some(Conservatory)
+        | "Lounge"       -> Some(Lounge)
+        | "Library"      -> Some(Library)
+        | "Kitchen"      -> Some(Kitchen)
+        | "Study"        -> Some(Study)
+        | "Hall"         -> Some(Hall)
+        | "DiningRoom"   -> Some(Dining_Room)
+        | _              -> None
 
-    type GamePlayer(character, hand) = 
-        let mutable _position = getStart character
+    //functions
+    let fairDice n = 
+        let rand = new System.Random()
+        fun () -> rand.Next()%n
 
-        member this.character = character
-        member this.hand = hand
-        member this.position
-            with public get() = _position
-            and public set value = _position <- value
+    let d6 = (fairDice 5) >> (+) 1
 
-    type GameContext (murder: Murder, players: GamePlayer list) = 
-        member this.murder = murder
-        member this.players = players
-        member this.playerCount = List.length this.players
-        member this.player = function 
-            | n when n < this.playerCount -> List.nth this.players n
-            | _ -> failwith "Tried to get a player that doesn't exist"
-
-        member this.board = Board.gameBoard
-        member this.otherPlayers character func = 
-            players
-            |> List.fold (fun acc (next: GamePlayer) -> 
-                match next.character with
-                | x when x = character -> next::acc
-                | _ -> acc) []
-            |> List.map func
-
-    let printPlayer (context: GameContext) n =
-        let player = context.player n
-        printfn "Player %A" n
-        printfn "Character: %A" player.character
-        printfn "Position: %A" player.position
-        printfn "Hand" 
-        player.hand |> List.iter (fun (c: Card) -> printfn "\t'%A'" c) 
-        
-    //Movement
-    let move (game:GameContext) movement (player:GamePlayer) desc :Update = 
-        if movement = 0 then 
-            NoUpdate
-        else
-            let otherPlayerLocs = game.otherPlayers player.character (fun p -> p.position )
-            let possibleRoute = shortestPathBetween game.board player.position desc
-            let start = player.position
-            let index = movement-1
-
-            match possibleRoute with
-            | Some(cost,route) -> 
-                do match List.length route with
-                   | x when index >= x -> do player.position <- desc
-                   | _ -> 
-                    do player.position <- List.nth route index
-                PlayerMovement({ player = player.character; start = start; desc = player.position})
-            | None -> NoUpdate
-
-    //Deck
     let shuffle cards = 
         let rand = new System.Random()
         cards
@@ -168,17 +153,9 @@ module Model =
         |> List.splitOn (fun (a1,a2) (b1,b2) -> b1 - a1 > 0)
         |> List.map (fun l -> List.map snd l)
 
-    //Dice
-    let fairDice n = 
-        let rand = new System.Random()
-        fun () -> rand.Next()%n
-
-    let d6 = fairDice 6
-
-    //Game control
-    let createGame (players: Player list) = 
+    let createGame (players: Character list) : GameContext = 
         let playerCount = List.length players
-        let playerCards = Player.All() |> shuffle
+        let playerCards = Character.All() |> shuffle
         let weaponCards = Weapon.All() |> shuffle
         let roomCards =     Room.All() |> shuffle
         let murder = { murderer = List.head playerCards; weapon = List.head weaponCards; room = List.head roomCards }
@@ -187,12 +164,33 @@ module Model =
         let deck = get playerCards Player @ get weaponCards Weapon @ get roomCards Room |> shuffle
         let hands = deal deck playerCount
 
-        let gamePlayers = List.fold2 (fun acc (hand: Hand) (player: Player) -> 
-            GamePlayer(player, hand)::acc) [] hands players
+        let gamePlayers = List.fold2 (fun acc (hand: Hand) (character: Character) -> 
+            {character = character; hand = hand; position = getStart character}::acc) [] hands players
 
-        GameContext(murder, gamePlayers)
+        {murder = murder; players = gamePlayers; board = Board.gameBoard}
 
-    //Query
+    let move (game:GameContext) (movement: int) (character:Character) (desc: string) : GameContext*Update = 
+
+        let otherPlayerLocs = game.others character (fun p -> p.position )
+
+        //otherPlayerLocs |> List.map (printfn "Position: %A") |> ignore
+        let pIndex = game.players |> List.findIndex (fun p -> p.character = character)
+        let index = movement-1
+
+        let update func = 
+            let game' = game |> (GameContext.Players >>| Lens.forList pIndex >>| Player.Position).Update func
+            let p = game.players.[pIndex]
+            let p' = game'.players.[pIndex]
+            let playerMovement = { character = p.character; start = p.position; desc = p'.position}
+            game',PlayerMovement(playerMovement)
+
+        match shortestPathBetweenBlocked game.board (game.players.[pIndex].position) desc otherPlayerLocs with
+        | Some(cost,route) -> 
+            match List.length route with
+                | x when index >= x -> update (fun _ -> desc)
+                | _                 -> update (fun _ -> List.nth route index)
+        | None -> (game,NoUpdate)
+
     let queryOrder max player = 
         [0..max-1]
         |> List.map (fun s -> (s+player)%max)
@@ -206,11 +204,11 @@ module Model =
             | _ -> false
         List.filter hasAny hand
 
-    let suggest (context: GameContext) playerNumber suggested = 
+    let suggest (context: GameContext) playerCount suggested = 
         let rec loop = function
             | [] -> None
-            | h::t -> match queryHand suggested ((context.player h).hand) with
+            | h::t -> match queryHand suggested context.players.[h].hand with
                       | [] -> loop t
                       | x -> Some(h,x)
 
-        loop <| queryOrder context.playerCount playerNumber
+        loop <| queryOrder context.players.Length playerCount
