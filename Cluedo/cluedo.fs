@@ -132,6 +132,12 @@ module Model =
         | "DiningRoom"   -> Some(Dining_Room)
         | _              -> None
 
+    let isRoom = function
+        | "BallRoom" | "BilliardRoom" | "Conservatory" 
+        | "Lounge"   | "Library"      | "Kitchen"      
+        | "Study"    | "Hall"         | "DiningRoom" -> true
+        | _  -> false
+
     //functions
     let fairDice n = 
         let rand = new System.Random()
@@ -170,10 +176,10 @@ module Model =
         {murder = murder; players = gamePlayers; board = Board.gameBoard}
 
     let move (game:GameContext) (movement: int) (character:Character) (desc: string) : GameContext*Update = 
+        let otherPlayerLocs = 
+            game.others character (fun p -> p.position )
+            |> List.filter ( isRoom >> not)
 
-        let otherPlayerLocs = game.others character (fun p -> p.position )
-
-        //otherPlayerLocs |> List.map (printfn "Position: %A") |> ignore
         let pIndex = game.players |> List.findIndex (fun p -> p.character = character)
         let index = movement-1
 
@@ -181,14 +187,18 @@ module Model =
             let game' = game |> (GameContext.Players >>| Lens.forList pIndex >>| Player.Position).Update func
             let p = game.players.[pIndex]
             let p' = game'.players.[pIndex]
-            let playerMovement = { character = p.character; start = p.position; desc = p'.position}
-            game',PlayerMovement(playerMovement)
+            game',PlayerMovement({ character = p.character; start = p.position; desc = p'.position})
+
+        let rec find route desc movement : string = 
+            match route with
+            | hd::tl when hd = desc -> desc
+            | hd::tl when isRoom hd -> desc
+            | hd::tl -> find tl desc (movement-1)
+            | hd::[] -> hd
+            | [] -> failwith "Invalid arg: 'route' -> find doesn't support empty lists"
 
         match shortestPathBetweenBlocked game.board (game.players.[pIndex].position) desc otherPlayerLocs with
-        | Some(cost,route) -> 
-            match List.length route with
-                | x when index >= x -> update (fun _ -> desc)
-                | _                 -> update (fun _ -> List.nth route index)
+        | Some(cost,route) -> update (fun _ -> find route desc index)
         | None -> (game,NoUpdate)
 
     let queryOrder max player = 
