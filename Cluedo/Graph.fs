@@ -70,13 +70,12 @@ module Graph =
       let shortestPaths = searchForShortestPath start 0 [] Map.empty
       shortestPaths.TryFind finish
 
+    let stripNodes (nodes:'a list) (graph:Map<'a,Map<'a,int>>)= 
+        graph
+        |> Map.removeMany nodes
+        |> Map.map (fun name connections -> 
+            Map.filter (fun n cost -> 
+                List.exists ((=)n) nodes |> not) connections)
 
     let shortestPathBetweenBlocked (distancesBetween:Map<'a,Map<'a,int>>) start finish (blocked:'a list) =
-        let graph' = 
-            distancesBetween
-            |> Map.removeMany blocked
-            |> Map.map (fun name connections -> 
-                Map.filter (fun n cost -> 
-                    List.exists ((=)n) blocked |> not) connections)
-
-        shortestPathBetween graph' start finish
+        shortestPathBetween (distancesBetween |> stripNodes blocked) start finish

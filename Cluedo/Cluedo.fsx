@@ -9,60 +9,40 @@ open Cluedo.Dot
 open Cluedo.Graph
 #load "board.fs"
 open Cluedo
-
 #load "cluedo.fs"
 open Cluedo.Model
-open FSharpx.Collections
-open System.Collections
 
-let playerTurn context (player: Player) movementFunc suggestFunc =
-    let moveAmount = d6 ()
-    let desc = movementFunc moveAmount
-    let context',moveUpdate = move context moveAmount player.character desc
+let randomMoveGen (game: GameContext) char i  = 
+    let finish = (List.nth <| Map.fold (fun acc key value -> key::acc) [] game.board) i 
+    let positions = game.players |> List.map (fun p -> p.position)
+    match shortestPathBetweenBlocked game.board (game.position char) finish positions with
+    | Some(cost,path) -> path
+    | None -> []
 
-    match canSuggestFrom player.position with
-    | Some(room) -> context',(suggestFunc room::moveUpdate::[])
-    | None       -> context',(moveUpdate::[])
+let randomSuggestGen = 
+    let rnd = System.Random()
+    let getRandListElement (lst: 'a list) = lst.[rnd.Next(lst.Length)]
+    let weapon = Weapon.All() |> getRandListElement
+    let character = Character.All() |> getRandListElement
 
-let randomMoveGen context = 
-    let descs = Map.fold (fun acc key value -> key::acc) [] context.board
-    let pick = fairDice (List.length descs)
-    (fun (moveAmount: int) -> List.nth descs (pick ()))
+    fun room -> { murderer = character; weapon = weapon; room = room };
 
-let blankSuggest room = 
-    Suggestion(
-     {
-        character = Miss_Scarlett; 
-        murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = room };
-        cardsRevealed = 0; 
-        cardsRevealedByPlayer = 0
-     })
-
-type PlayerModel(game, n: int, character: Character) = 
-    member this.character = character
-    member this.n = n
-    member this.move = randomMoveGen game
-    member this.suggest = blankSuggest
-
-let play game turns =
-    let next = getNextFunc turns
-    let rec loop (context: GameContext) = 
-        seq {
-            let (player: PlayerModel) = next ()
-            let otherPlayerLocs = context.others player.character (fun p -> p.position )
-            let context',updates = playerTurn context (context.player player.character) player.move player.suggest
-
-            for update in updates 
-                do yield updates
-            yield! loop context'
-        }
-    loop game
+type PlayerModel(game: GameContext, character: Character) = 
+    interface IPlayerModel with
+        member this.character = character
+        member this.move = randomMoveGen game character
+        member this.suggest = randomSuggestGen
+        member this.receiveUpdate (update:Update) = this :> IPlayerModel
+        member this.show cards toPlayer = (cards |> List.head),(this :> IPlayerModel)
+        member this.see suggestion (cardFromPlayer) = Some({ murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }),(this :> IPlayerModel)
 
 
 let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White;]
 let murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
-let turns = 
-    [PlayerModel(game, 0,Miss_Scarlett); PlayerModel(game, 1,Colonel_Mustard); PlayerModel(game, 2,Mrs_White);]
-    |> List.generateCircularSeq
+let starting = 
+    [PlayerModel(game, Miss_Scarlett); 
+     PlayerModel(game, Colonel_Mustard); 
+     PlayerModel(game, Mrs_White);]
+    |> List.map (fun x -> x :> IPlayerModel)
 
-let changes = play game turns |> Seq.take 20 |> List.ofSeq
+let changes = playMap game starting |> Seq.take 20 |> List.ofSeq
