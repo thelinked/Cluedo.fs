@@ -200,7 +200,9 @@ module Model =
     let updatePosition character position (context:GameContext) =
         let i = context.playerIndex character
         let pos = context.players.[i].position
-        let context' = (context |> (GameContext.Players >>| Lens.forList i >>| Player.Position).Update (fun _ -> position))
+        let context' = 
+            (context 
+            |> (GameContext.Players >>| Lens.forList i >>| Player.Position).Update (fun _ -> position))
         let pos' = context'.players.[i].position
         PlayerMovement({ character = character; start = pos; desc = pos'}),context'
 
@@ -264,7 +266,10 @@ module Model =
                     let suggestion = (current.suggest room)
                     match suggest context' current'.character suggestion with
                     | None -> 
-                        let suggestUpdate = Suggestion({ character = current'.character; suggestion = suggestion; cardRevealedByPlayer = current'.character;})
+                        let suggestUpdate = 
+                            Suggestion({ character = current'.character; 
+                                         suggestion = suggestion; 
+                                         cardRevealedByPlayer = current'.character;})
                         let others'' = others' |> sendUpdate suggestUpdate
                         let accusation,current'' = current'.see suggestUpdate None
 
@@ -272,8 +277,14 @@ module Model =
                         yield! accuseFlow context' others'' current'' accusation
 
                     | Some(char,cards) -> 
-                        let suggestUpdate = Suggestion({ character = current'.character; suggestion = suggestion; cardRevealedByPlayer = char;})
-                        let l1,p,l2 = others' |> sendUpdate suggestUpdate |> List.findSplit (fun o -> o.character = char)
+                        let suggestUpdate = 
+                            Suggestion({ character = current'.character; 
+                                         suggestion = suggestion; 
+                                         cardRevealedByPlayer = char;})
+                        let l1,p,l2 = 
+                            others' 
+                            |> sendUpdate suggestUpdate 
+                            |> List.findSplit (fun o -> o.character = char)
                         let card,p' = p.show cards current'
                         let accusation,current'' = current'.see suggestUpdate (Some(card,p'.character))
 
