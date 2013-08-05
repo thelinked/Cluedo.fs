@@ -253,9 +253,14 @@ module Model =
                 yield accuseUpdate
                 yield! continueWith c' (others |> sendUpdate accuseUpdate)}
 
+    let rec filterToRoom path = 
+        match List.tryFindIndex (isRoom) path with
+        | Some(i) -> path |> Seq.ofList |> Seq.take (i+1) |> List.ofSeq
+        | None -> path
+
     let rec play (context: GameContext) ((current:IPlayerModel)::others) = seq {
         let moveAmount = d6 ()
-        let movement = current.move moveAmount context
+        let movement = current.move moveAmount context |> filterToRoom
         if List.length movement = 0 || List.length movement < moveAmount then
             yield! play context (others @ [current])
         else
