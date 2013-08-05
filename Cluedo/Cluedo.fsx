@@ -13,9 +13,8 @@ open Cluedo
 open Cluedo.Model
 
 let rand = fairDice 9 >> (fun x -> x - 1)
-let rooms = ["BallRoom"; "BilliardRoom"; "Conservatory"; "Lounge"; 
-             "Library"; "Kitchen"; "Study"; "Hall"; "DiningRoom";]
-let randRoom = fun () -> List.nth rooms (rand ())
+let rooms = Room.All() |> List.map roomToString
+let randRoom = fun () -> List.nth rooms <| rand ()
 
 let randomMoveGen char i (game: GameContext) = 
     let striped = stripNodes (game.othersThan char (fun x -> x.position)) game.board
@@ -46,15 +45,11 @@ type PlayerModel(character: Character) =
         member this.see suggestion (cardFromPlayer) = 
             Some({ murderer = Colonel_Mustard; weapon = Candlestick; room = Kitchen }),(this :> IPlayerModel)
 
-let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White; Reverend_Green; Mrs_Peacock; Professor_Plum;]
-let murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
-let players = 
-    [PlayerModel(Miss_Scarlett); 
-     PlayerModel(Colonel_Mustard); 
-     PlayerModel(Mrs_White);
-     PlayerModel(Reverend_Green);
-     PlayerModel(Mrs_Peacock);
-     PlayerModel(Professor_Plum);]
-    |> List.map (fun x -> x :> IPlayerModel)
+
+
+let players = [PlayerModel(Miss_Scarlett); PlayerModel(Colonel_Mustard); PlayerModel(Mrs_White);]
+              |> List.map (fun x -> x :> IPlayerModel)
+
+let game = createGame (players |> List.map (fun x -> x.character))
 
 let changes = play game players |> List.ofSeq

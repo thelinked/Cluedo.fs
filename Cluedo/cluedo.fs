@@ -20,9 +20,8 @@ module Model =
     open Graph
     open FSharpx.Lens.Operators
     open FSharpx
-    open FSharpx.State
 
-    //Data
+    //Cards
     type Character = 
         | Miss_Scarlett  | Colonel_Mustard | Mrs_White
         | Reverend_Green | Mrs_Peacock     | Professor_Plum
@@ -56,16 +55,17 @@ module Model =
         room : Room;
     }
     
+    //Messages
     type StartingPlayer = {
         character: Character;
         cardNumber: int
     }
 
     type Starting = {
-        otherPlayers: StartingPlayer list;
+        players: StartingPlayer list;
     }
 
-    type Accuse = {
+    type Accusation = {
         character: Character;
         murder: Murder;
         success: bool;
@@ -87,11 +87,13 @@ module Model =
     }
 
     type Update = 
-        | Accuse         of Accuse
+        | Starting       of Starting
+        | Accusation     of Accusation
         | Suggestion     of Suggestion
         | PlayerMovement of PlayerMovement
         | Winner         of Winner
 
+    //State
     type Player = {
         character: Character;
         hand: Card list;
@@ -248,70 +250,74 @@ module Model =
 
     let sendUpdate update = List.map (fun (next:IPlayerModel) -> (next.receiveUpdate update))
 
-    let accuseFlow (c: GameContext) (others:IPlayerModel list) current accusation continueWith = seq {
-        match accusation with
-        | None -> yield! continueWith c (others @ [current])
-        | Some(a) when c.murder = a -> //Success
-            yield Accuse({character = current.character; murder = a; success = true})
-            yield Winner({character = current.character})
-        | Some(a) -> //Failure
-            let accuseUpdate = Accuse({character = current.character; murder = a; success = false})
-            match List.length others with
-            | 1 -> 
-                yield accuseUpdate
-                yield Winner({character = others.Head.character})
-            | _ -> 
-                let c' = {c with players = c.players |> List.filter (fun p -> p.character <> current.character)}
-                yield accuseUpdate
-                yield! continueWith c' (others |> sendUpdate accuseUpdate)}
-
     let rec filterToRoom path = 
         match List.tryFindIndex (isRoom) path with
         | Some(i) -> path |> Seq.ofList |> Seq.take (i+1) |> List.ofSeq
         | None -> path
 
-    let rec play (context: GameContext) ((current:IPlayerModel)::others) = seq {
-        let currentPlayers = current::others |> List.map (fun x -> x.character)
-        let moveAmount = d6 ()
-        let movement = current.move moveAmount context |> filterToRoom
-        if List.length movement = 0 || List.length movement < moveAmount then
-            yield! play context (others @ [current])
-        else
-            let finish = movement |> List.rev |> List.head
-            let context' = updatePosition current.character finish context
-            let moveUpdate =  PlayerMovement({ character = current.character; path = movement})
-            let current'::others' = sendUpdate moveUpdate (current::others)
+    let play (gameContext: GameContext) players =
+        let rec moveState (c: GameContext) ((current:IPlayerModel)::others) = seq {
+            let moveAmount = d6 ()
+            let movement = current.move moveAmount c |> filterToRoom
+            if List.length movement = 0 || List.length movement < moveAmount then
+                yield! moveState c (others @ [current])
+            else
+                let finish = movement |> List.rev |> List.head
+                let context = updatePosition current.character finish c
+                let moveUpdate =  PlayerMovement({ character = current.character; path = movement})
+                let current'::others' = sendUpdate moveUpdate (current::others)
 
-            yield moveUpdate
-            match canSuggestFrom (context'.position current'.character) with
-            | None -> yield! play context' (others' @ [current'])
+                yield moveUpdate
+                yield! suggestState context current' others'}
+
+        and suggestState (c: GameContext) (current:IPlayerModel) (others:IPlayerModel list) = seq {
+            let currentPlayers = current::others |> List.map (fun x -> x.character)
+            match canSuggestFrom (c.position current.character) with
+            | None -> yield! moveState c (others @ [current])
             | Some(room) -> 
-                let suggestion = (current'.suggest room)
-                let context'' = match List.tryFind ((=)suggestion.murderer) currentPlayers with
-                                | Some(i) ->
-                                    updatePosition suggestion.murderer (roomToString suggestion.room) context'
-                                | None -> context'
-                match suggest context'' current'.character suggestion with
-                | None -> 
-                    let suggestUpdate = Suggestion({ character = current'.character; suggestion = suggestion; 
-                                                     cardRevealedByPlayer = current'.character;})
-
+                let suggestion = (current.suggest room)
+                let context = match List.tryFind ((=)suggestion.murderer) currentPlayers with
+                              | Some(i) -> updatePosition suggestion.murderer (roomToString suggestion.room) c
+                              | None    -> c
+                match suggest context current.character suggestion with
+                | None ->  
+                    let suggestUpdate = Suggestion({ character = current.character; suggestion = suggestion; 
+                                                     cardRevealedByPlayer = current.character;})
                     
-                    let others'' = others' |> sendUpdate suggestUpdate
-                    let accusation,current'' = current'.see suggestUpdate None
+                    let others' = sendUpdate suggestUpdate others
+                    let accusation,current' = current.see suggestUpdate None
 
                     yield suggestUpdate
-                    yield! accuseFlow context'' others'' current'' accusation play
-
+                    yield! accuseState context current' others' accusation
                 | Some(char,cards) -> 
-                    let suggestUpdate = Suggestion({ character = current'.character; suggestion = suggestion; 
+                    let suggestUpdate = Suggestion({ character = current.character; suggestion = suggestion; 
                                                      cardRevealedByPlayer = char;})
-
-                    let l1,p,l2 = others' |> sendUpdate suggestUpdate 
-                                          |> List.findSplit (fun o -> o.character = char)
-                    let card,p' = p.show cards current'
-                    let accusation,current'' = current'.see suggestUpdate (Some(card,p'.character))
+                        
+                    let l1,p,l2 = others |> sendUpdate suggestUpdate |> List.findSplit (fun o -> o.character = char)
+                    let card,p' = p.show cards current
+                    let accusation,current' = current.see suggestUpdate (Some(card,p'.character))
 
                     yield suggestUpdate
-                    yield! accuseFlow context'' (l1 @ [p'] @ l2) current'' accusation play
-            }
+                    yield! accuseState context current' (l1 @ [p'] @ l2) accusation}
+
+        and accuseState (c: GameContext) current (others:IPlayerModel list) accusation = seq {
+            match accusation with
+            | None -> yield! moveState c (others @ [current])
+            | Some(a) when c.murder = a -> //Success
+                yield Accusation({character = current.character; murder = a; success = true})
+                yield Winner({character = current.character})
+            | Some(a) -> //Failure
+                let accuseUpdate = Accusation({character = current.character; murder = a; success = false})
+                match List.length others with
+                | 1 -> yield accuseUpdate
+                       yield Winner({character = others.Head.character})
+                | _ -> 
+                    let c' = GameContext.Players.Update (List.filter (fun x -> x.character <> current.character)) c
+                    yield accuseUpdate
+                    yield! moveState c' (others |> sendUpdate accuseUpdate)}
+
+        let start = gameContext.players 
+                    |> List.map (fun (x:Player) -> {character = x.character; cardNumber = List.length x.hand})
+        let players' = sendUpdate (Starting({players = start})) players
+
+        seq { yield! moveState gameContext players' }
