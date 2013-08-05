@@ -22,7 +22,7 @@ module Model =
     open FSharpx
     open FSharpx.State
 
-    //Data Model
+    //Data
     type Character = 
         | Miss_Scarlett  | Colonel_Mustard | Mrs_White
         | Reverend_Green | Mrs_Peacock     | Professor_Plum
@@ -79,15 +79,18 @@ module Model =
     
     type PlayerMovement = {
         character: Character;
-        start: string;
-        desc: string
+        path: string list;
+    }
+
+    type Winner = {
+        character: Character;
     }
 
     type Update = 
-        | NoUpdate
         | Accuse         of Accuse
         | Suggestion     of Suggestion
         | PlayerMovement of PlayerMovement
+        | Winner         of Winner
 
     type Player = {
         character: Character;
@@ -122,6 +125,14 @@ module Model =
             { Get = fun (x: GameContext) -> x.players
               Set = fun v (x: GameContext) -> { x with players = v } }
         
+    type IPlayerModel = 
+        abstract member character : Character
+        abstract member move : (int -> GameContext -> string list)
+        abstract member suggest : (Room -> Murder)
+        abstract member receiveUpdate: Update -> IPlayerModel
+        abstract member show : Card list -> 'd -> (Card*IPlayerModel)
+        abstract member see : Update -> (Card*Character) option -> (Murder option*IPlayerModel)
+
     //Lookups
     let getStart = function
         | Miss_Scarlett   -> "ScarlettStart"
@@ -149,12 +160,12 @@ module Model =
         | "Study"    | "Hall"         | "DiningRoom" -> true
         | _  -> false
 
-    //functions
+    //Functions
     let fairDice n = 
         let rand = new System.Random()
-        fun () -> (rand.Next()%n-1) + 1 
+        fun () -> (rand.Next()%n) + 1 
 
-    let d6 = fairDice 5
+    let d6 = fairDice 6
 
     let createGame (players: Character list) : GameContext =
         let shuffle cards = 
@@ -200,11 +211,7 @@ module Model =
     let updatePosition character position (context:GameContext) =
         let i = context.playerIndex character
         let pos = context.players.[i].position
-        let context' = 
-            (context 
-            |> (GameContext.Players >>| Lens.forList i >>| Player.Position).Update (fun _ -> position))
-        let pos' = context'.players.[i].position
-        PlayerMovement({ character = character; start = pos; desc = pos'}),context'
+        context |> (GameContext.Players >>| Lens.forList i >>| Player.Position).Update (fun _ -> position)
 
     let suggest (context: GameContext) character suggested = 
         let queryOrder max player = 
@@ -227,68 +234,62 @@ module Model =
 
         loop <| queryOrder context.players.Length (context.playerIndex character)
 
-        
-    type IPlayerModel = 
-        abstract member character : Character
-        abstract member move : (int -> string list)
-        abstract member suggest : (Room -> Murder)
-        abstract member receiveUpdate: Update -> IPlayerModel
-        abstract member show : Card list -> 'd -> (Card*IPlayerModel)
-        abstract member see : Update -> (Card*Character) option -> (Murder option*IPlayerModel)
-
     let sendUpdate update = List.map (fun (next:IPlayerModel) -> (next.receiveUpdate update))
 
-    
-    let playMap game (players: IPlayerModel list) =
-        let rec loop (context: GameContext) ((current:IPlayerModel)::others) = 
+    let accuseFlow (c: GameContext) (others:IPlayerModel list) current accusation continueWith = seq {
+        match accusation with
+        | None -> yield! continueWith c (others @ [current])
+        | Some(a) when c.murder = a -> //Success
+            yield Accuse({character = current.character; murder = a; success = true})
+            yield Winner({character = current.character})
+        | Some(a) -> //Failure
+            let accuseUpdate = Accuse({character = current.character; murder = a; success = false})
+            match List.length others with
+            | 1 -> 
+                yield accuseUpdate
+                yield Winner({character = others.Head.character})
+            | _ -> 
+                let c' = {c with players = c.players |> List.filter (fun p -> p.character <> current.character)}
+                yield accuseUpdate
+                yield! continueWith c' (others |> sendUpdate accuseUpdate)}
 
-            let accuseFlow (c: GameContext) others current accusation = seq {
-                match accusation with
-                | None -> yield! loop c (others @ [current])
-                | Some(a) when context.murder = a -> //Success
-                    yield Accuse({character = current.character; murder = a; success = true})
-                | Some(a) -> //Failure
-                    let accuseUpdate = Accuse({character = current.character; murder = a; success = false})
-                    yield! loop c (others |> sendUpdate accuseUpdate)}
-
-            let moveAmount = d6 ()
-            //Movement is stored in reverse order
-            let movement = current.move moveAmount
-            let moveUpdate,context' = updatePosition current.character movement.Head context
+    let rec play (context: GameContext) ((current:IPlayerModel)::others) = seq {
+        let moveAmount = d6 ()
+        let movement = current.move moveAmount context
+        if List.length movement = 0 || List.length movement < moveAmount then
+            yield! play context (others @ [current])
+        else
+            let finish = movement |> List.rev |> List.head
+            let context' = updatePosition current.character finish context
+            let moveUpdate =  PlayerMovement({ character = current.character; path = movement})
             let current'::others' = sendUpdate moveUpdate (current::others)
 
-            seq {
-                yield moveUpdate
+            do printfn "player %A was at %A and is now at %A" current.character (context.position current.character) (context'.position current.character)
+            yield moveUpdate
+            match canSuggestFrom (context'.position current'.character) with
+            | None -> yield! play context' (others' @ [current'])
+            | Some(room) -> 
+                let suggestion = (current'.suggest room)
+                match suggest context' current'.character suggestion with
+                | None -> 
+                    let suggestUpdate = Suggestion({ character = current'.character; suggestion = suggestion; 
+                                                     cardRevealedByPlayer = current'.character;})
 
-                match canSuggestFrom (context'.position current'.character) with
-                | None -> yield! loop context' (others' @ [current'])
-                | Some(room) -> 
-                    let suggestion = (current.suggest room)
-                    match suggest context' current'.character suggestion with
-                    | None -> 
-                        let suggestUpdate = 
-                            Suggestion({ character = current'.character; 
-                                         suggestion = suggestion; 
-                                         cardRevealedByPlayer = current'.character;})
-                        let others'' = others' |> sendUpdate suggestUpdate
-                        let accusation,current'' = current'.see suggestUpdate None
+                    let others'' = others' |> sendUpdate suggestUpdate
+                    let accusation,current'' = current'.see suggestUpdate None
 
-                        yield suggestUpdate
-                        yield! accuseFlow context' others'' current'' accusation
+                    yield suggestUpdate
+                    yield! accuseFlow context' others'' current'' accusation play
 
-                    | Some(char,cards) -> 
-                        let suggestUpdate = 
-                            Suggestion({ character = current'.character; 
-                                         suggestion = suggestion; 
-                                         cardRevealedByPlayer = char;})
-                        let l1,p,l2 = 
-                            others' 
-                            |> sendUpdate suggestUpdate 
-                            |> List.findSplit (fun o -> o.character = char)
-                        let card,p' = p.show cards current'
-                        let accusation,current'' = current'.see suggestUpdate (Some(card,p'.character))
+                | Some(char,cards) -> 
+                    let suggestUpdate = Suggestion({ character = current'.character; suggestion = suggestion; 
+                                                     cardRevealedByPlayer = char;})
 
-                        yield suggestUpdate
-                        yield! accuseFlow context' (l1 @ [p'] @ l2) current'' accusation
-                }
-        loop game players
+                    let l1,p,l2 = others' |> sendUpdate suggestUpdate 
+                                          |> List.findSplit (fun o -> o.character = char)
+                    let card,p' = p.show cards current'
+                    let accusation,current'' = current'.see suggestUpdate (Some(card,p'.character))
+
+                    yield suggestUpdate
+                    yield! accuseFlow context' (l1 @ [p'] @ l2) current'' accusation play
+            }

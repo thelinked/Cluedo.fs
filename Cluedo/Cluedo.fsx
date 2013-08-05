@@ -12,11 +12,20 @@ open Cluedo
 #load "cluedo.fs"
 open Cluedo.Model
 
-let randomMoveGen (game: GameContext) char i  = 
-    let finish = (List.nth <| Map.fold (fun acc key value -> key::acc) [] game.board) i 
-    let positions = game.players |> List.map (fun p -> p.position)
-    match shortestPathBetweenBlocked game.board (game.position char) finish positions with
-    | Some(cost,path) -> path
+let rand = fairDice 9 >> (fun x -> x - 1)
+let rooms = ["BallRoom"; "BilliardRoom"; "Conservatory"; "Lounge"; 
+             "Library"; "Kitchen"; "Study"; "Hall"; "DiningRoom";]
+let randRoom = fun () -> List.nth rooms (rand ())
+
+let randomMoveGen char i (game: GameContext) = 
+    let striped = stripNodes (game.othersThan char (fun x -> x.position)) game.board
+    let finish = randRoom ()
+    match shortestPathBetween striped (game.position char) finish with
+    | Some(cost,path) -> 
+        if List.length path >= i then
+            ((game.position char)::(path |> Seq.ofList |> Seq.take i |> List.ofSeq))
+        else 
+            (game.position char)::path
     | None -> []
 
 let randomSuggestGen = 
@@ -27,22 +36,21 @@ let randomSuggestGen =
 
     fun room -> { murderer = character; weapon = weapon; room = room };
 
-type PlayerModel(game: GameContext, character: Character) = 
+type PlayerModel(character: Character) = 
     interface IPlayerModel with
         member this.character = character
-        member this.move = randomMoveGen game character
+        member this.move = randomMoveGen character
         member this.suggest = randomSuggestGen
         member this.receiveUpdate (update:Update) = this :> IPlayerModel
         member this.show cards toPlayer = (cards |> List.head),(this :> IPlayerModel)
-        member this.see suggestion (cardFromPlayer) = Some({ murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }),(this :> IPlayerModel)
-
+        member this.see suggestion (cardFromPlayer) = Some({ murderer = Colonel_Mustard; weapon = Candlestick; room = Kitchen }),(this :> IPlayerModel)
 
 let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White;]
 let murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
-let starting = 
-    [PlayerModel(game, Miss_Scarlett); 
-     PlayerModel(game, Colonel_Mustard); 
-     PlayerModel(game, Mrs_White);]
+let players = 
+    [PlayerModel(Miss_Scarlett); 
+     PlayerModel(Colonel_Mustard); 
+     PlayerModel(Mrs_White);]
     |> List.map (fun x -> x :> IPlayerModel)
 
-let changes = playMap game starting |> Seq.take 20 |> List.ofSeq
+let changes = play game players |> List.ofSeq

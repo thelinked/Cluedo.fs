@@ -51,7 +51,7 @@ module Graph =
                                          |> Map.add a ( acc.[a] |> Map.add b c) 
                                          |> Map.add b ( acc.[b] |> Map.add a c))
 
-    let shortestPathBetween (distancesBetween:Map<'a,Map<'a,int>>) start finish =
+    let shortestPathAll (distancesBetween:Map<'a,Map<'a,int>>) start =
       let rec searchForShortestPath current distanceSoFar visitedNodes accMap =
         let visitDestinations m =
           (m, distancesBetween.[current])
@@ -67,8 +67,10 @@ module Graph =
               accMap |> Map.add current (distanceSoFar, visitedNodes) |> visitDestinations
             else accMap
 
-      let shortestPaths = searchForShortestPath start 0 [] Map.empty
-      shortestPaths.TryFind finish
+      searchForShortestPath start 0 [] Map.empty
+
+    let shortestPathBetween (distancesBetween:Map<'a,Map<'a,int>>) start finish =
+      (shortestPathAll distancesBetween start) |> Map.tryFind finish
 
     let stripNodes (nodes:'a list) (graph:Map<'a,Map<'a,int>>)= 
         graph
