@@ -31,10 +31,10 @@ let randomMoveGen char i (game: GameContext) =
 let randomSuggestGen = 
     let rnd = System.Random()
     let getRandListElement (lst: 'a list) = lst.[rnd.Next(lst.Length)]
-    let weapon = Weapon.All() |> getRandListElement
-    let character = Character.All() |> getRandListElement
-
-    fun room -> { murderer = character; weapon = weapon; room = room };
+    fun room -> 
+        let weapon = Weapon.All() |> getRandListElement
+        let character = Character.All() |> getRandListElement
+        { murderer = character; weapon = weapon; room = room };
 
 type PlayerModel(character: Character) = 
     interface IPlayerModel with
@@ -43,14 +43,18 @@ type PlayerModel(character: Character) =
         member this.suggest = randomSuggestGen
         member this.receiveUpdate (update:Update) = this :> IPlayerModel
         member this.show cards toPlayer = (cards |> List.head),(this :> IPlayerModel)
-        member this.see suggestion (cardFromPlayer) = Some({ murderer = Colonel_Mustard; weapon = Candlestick; room = Kitchen }),(this :> IPlayerModel)
+        member this.see suggestion (cardFromPlayer) = 
+            Some({ murderer = Colonel_Mustard; weapon = Candlestick; room = Kitchen }),(this :> IPlayerModel)
 
-let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White;]
+let game = createGame [Miss_Scarlett; Colonel_Mustard; Mrs_White; Reverend_Green; Mrs_Peacock; Professor_Plum;]
 let murder = { murderer = Miss_Scarlett; weapon = Candlestick; room = Kitchen }
 let players = 
     [PlayerModel(Miss_Scarlett); 
      PlayerModel(Colonel_Mustard); 
-     PlayerModel(Mrs_White);]
+     PlayerModel(Mrs_White);
+     PlayerModel(Reverend_Green);
+     PlayerModel(Mrs_Peacock);
+     PlayerModel(Professor_Plum);]
     |> List.map (fun x -> x :> IPlayerModel)
 
 let changes = play game players |> List.ofSeq

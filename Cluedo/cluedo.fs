@@ -141,7 +141,7 @@ module Model =
         | Reverend_Green  -> "GreenStart"
         | Mrs_Peacock     -> "PeacockStart"
         | Professor_Plum  -> "PlumStart"
-
+        
     let canSuggestFrom = function
         | "BallRoom"     -> Some(Ballroom)
         | "BilliardRoom" -> Some(Billiard_Room)
@@ -153,6 +153,18 @@ module Model =
         | "Hall"         -> Some(Hall)
         | "DiningRoom"   -> Some(Dining_Room)
         | _              -> None
+
+    let roomToString = function
+        | Ballroom -> "BallRoom"     
+        | Billiard_Room -> "BilliardRoom" 
+        | Conservatory -> "Conservatory" 
+        | Lounge -> "Lounge"       
+        | Library -> "Library"      
+        | Kitchen -> "Kitchen"      
+        | Study -> "Study"        
+        | Hall -> "Hall"         
+        | Dining_Room -> "DiningRoom"   
+
 
     let isRoom = function
         | "BallRoom" | "BilliardRoom" | "Conservatory" 
@@ -259,6 +271,7 @@ module Model =
         | None -> path
 
     let rec play (context: GameContext) ((current:IPlayerModel)::others) = seq {
+        let currentPlayers = current::others |> List.map (fun x -> x.character)
         let moveAmount = d6 ()
         let movement = current.move moveAmount context |> filterToRoom
         if List.length movement = 0 || List.length movement < moveAmount then
@@ -269,22 +282,26 @@ module Model =
             let moveUpdate =  PlayerMovement({ character = current.character; path = movement})
             let current'::others' = sendUpdate moveUpdate (current::others)
 
-            do printfn "player %A was at %A and is now at %A" current.character (context.position current.character) (context'.position current.character)
             yield moveUpdate
             match canSuggestFrom (context'.position current'.character) with
             | None -> yield! play context' (others' @ [current'])
             | Some(room) -> 
                 let suggestion = (current'.suggest room)
-                match suggest context' current'.character suggestion with
+                let context'' = match List.tryFind ((=)suggestion.murderer) currentPlayers with
+                                | Some(i) ->
+                                    updatePosition suggestion.murderer (roomToString suggestion.room) context'
+                                | None -> context'
+                match suggest context'' current'.character suggestion with
                 | None -> 
                     let suggestUpdate = Suggestion({ character = current'.character; suggestion = suggestion; 
                                                      cardRevealedByPlayer = current'.character;})
 
+                    
                     let others'' = others' |> sendUpdate suggestUpdate
                     let accusation,current'' = current'.see suggestUpdate None
 
                     yield suggestUpdate
-                    yield! accuseFlow context' others'' current'' accusation play
+                    yield! accuseFlow context'' others'' current'' accusation play
 
                 | Some(char,cards) -> 
                     let suggestUpdate = Suggestion({ character = current'.character; suggestion = suggestion; 
@@ -296,5 +313,5 @@ module Model =
                     let accusation,current'' = current'.see suggestUpdate (Some(card,p'.character))
 
                     yield suggestUpdate
-                    yield! accuseFlow context' (l1 @ [p'] @ l2) current'' accusation play
+                    yield! accuseFlow context'' (l1 @ [p'] @ l2) current'' accusation play
             }
