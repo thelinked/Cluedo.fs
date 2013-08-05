@@ -317,7 +317,7 @@ module Model =
                     yield! moveState c' (others |> sendUpdate accuseUpdate)}
 
         let start = gameContext.players 
-                    |> List.map (fun (x:Player) -> {character = x.character; cardNumber = List.length x.hand})
+                    |> List.map (fun (x:Player) -> {cardNumber = List.length x.hand; character = x.character;})
         let players' = sendUpdate (Starting({players = start})) players
 
         seq { yield! moveState gameContext players' }
